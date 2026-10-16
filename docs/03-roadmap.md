@@ -89,7 +89,7 @@
 |---|---|---|---|---|---|
 | P1-01a | P1 | 固定场景网页受控复现、停止与报告操作 | P0-03/04 | [规格](22-web-reproduction.md)、[设计复审](reviews/P1-01a-design-review.md)；W01～W12，[验收记录](23-p1-01a-delivery.md)；planned → ready → in_progress → in_review → done | done |
 | P1-01b | P1 | 固定案例网页分析与执行控制台 | P0-05 | [实施规格](29-web-analysis-console.md)；planned → ready → in_progress；接收账本、服务、前端控制台、证据阅读与交付文档已独立评审；真实网页模型、容器及T05取消回收链路通过，见[交付记录](30-web-analysis-delivery.md) | done |
-| P1-01 | P1 | 完整 Web 运行/审批接入（不含已拆分的固定场景入口） | P0-06 | planned → ready → in_progress；[网页修复设计](34-p1-01-web-repair.md)及[框架预审](reviews/P1-01-web-repair-design-review.md)；[B1详细契约](35-p1-01-b1-admission.md)已独立复审冻结，[B1a接收账本](36-p1-01-b1a-delivery.md)已验收done；[B1b执行接续/安全释放](37-p1-01-b1b-delivery.md)已验收done；[B2 API与生命周期](38-p1-01-b2-delivery.md)已验收done；[B3网页操作与常驻服务](39-p1-01-b3-web-controls.md)已验收done；审批不等于写回 | in_progress |
+| P1-01 | P1 | 完整 Web 运行/审批接入（不含已拆分的固定场景入口） | P0-06 | planned → ready → in_progress → in_review；[网页修复设计](34-p1-01-web-repair.md)、[B1a](36-p1-01-b1a-delivery.md)、[B1b](37-p1-01-b1b-delivery.md)、[B2](38-p1-01-b2-delivery.md)、[B3](39-p1-01-b3-web-controls.md)、[B4](40-p1-01-b4-approval-download.md)；审批不等于写回 | in_progress |
 | P1-02 | P1 | 项目经验记忆 | P0-06 | 人工确认、来源、版本匹配、过期/删除；错误经验负向测试 | planned |
 | P1-03 | P1 | CLI/CI 打包与接入指南 | P0-06 | 三个不同工具项目接入，其中一个非开发 fixture；安装/卸载/升级验证 | planned |
 | P1-04 | P1 | 使用验证与独立评测集 | P0-03 | ≥10 个来源明确的故障案例；真实/合成分报；记录真实开发者试用反馈或明确未取得 | planned |
@@ -240,3 +240,9 @@
 - API/SQLite/生产Next代理的隔离浏览器链路通过；两个独立评审子范围分开验收，全量1551 passed/67 skipped、核心浏览器36 passed/1 skipped与补充2项通过，完整记录见[39](39-p1-01-b3-web-controls.md)。
 - 主库已从0007显式迁移0008，17个旧表183行逐行字节/顺序摘要一致；用户要求本机前后端由launchd常驻，两个服务独立核验PPID1、loopback监听及HTTP200，常驻交付完成。
 - 下一批B4为人工审阅决定与补丁下载，B5再完成真实模型/Docker/审批完整链路；父任务仍in_progress。
+
+### 2026-10-16：P1-01 B4 人工决定与精确补丁下载
+
+- B4 planned → ready → in_progress → in_review → done：已实现候选接受/拒绝、任务级 CAS、旧 request 幂等、追加式决定账本、当前证据失效显示和精确 diff 下载；不写回用户项目。
+- 主库已从 0009 迁移到 0010；迁移会为旧决定补齐候选关联并建立历史账本。审批线程数有界，非法请求和下载大小/摘要/关联均在边界校验。
+- 定向后端 15 passed，完整 Python 测试通过；前端 `repairs.spec.ts` 27 passed；Ruff（B4 范围）、mypy、TypeScript、production build、diff check 通过。独立后端/前端评审均 Pass，B4 已完成；B5 仍负责真实模型/Docker/整体验收。

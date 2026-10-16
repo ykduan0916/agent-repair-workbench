@@ -1,5 +1,6 @@
 import { test, expect, Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { createHash } from "node:crypto";
 const A = "10000000-0000-4000-8000-000000000001",
   B = "10000000-0000-4000-8000-000000000002";
 const C = "20000000-0000-4000-8000-000000000001",
@@ -142,6 +143,34 @@ function diff(id = A) {
     },
   };
 }
+function decisionReceipt(id = A, accepted = false) {
+  return {
+    schema_version: 1,
+    task_id: id,
+    candidate_id: C,
+    revision: accepted ? 1 : 0,
+    current_valid: true,
+    can_accept: !accepted,
+    can_reject: accepted,
+    can_download: accepted,
+    decision: accepted ? {
+      schema_version: 1,
+      decision_id: "50000000-0000-4000-8000-000000000001",
+      task_id: id,
+      candidate_id: C,
+      request_id: "60000000-0000-4000-8000-000000000001",
+      decision: "accepted",
+      revision: 1,
+      candidate_sha256: SHA,
+      comparison_id: COMP,
+      comparison_sha256: SHA,
+      created_at: "2026-10-14T00:00:06Z",
+      history: [{ candidate_id: C, decision: "accepted", revision: 1, request_id: "60000000-0000-4000-8000-000000000001", created_at: "2026-10-14T00:00:06Z" }],
+    } : null,
+    candidate_sha256: SHA,
+    comparison_sha256: SHA,
+  };
+}
 async function mock(page: Page, values = [sample(), sample(B)]) {
   const writes: string[] = [];
   page.on("request", (r) => {
@@ -157,6 +186,21 @@ async function mock(page: Page, values = [sample(), sample(B)]) {
     const item = values.find((v) =>
       path.startsWith(`/api/repairs/${v.task.task_id}`),
     );
+    if (item && path.endsWith("/decision")) {
+      return route.fulfill({ json: {
+        schema_version: 1,
+        task_id: item.task.task_id,
+        candidate_id: item.candidates[0].candidate_id,
+        revision: 0,
+        current_valid: true,
+        can_accept: true,
+        can_reject: true,
+        can_download: false,
+        decision: null,
+        candidate_sha256: SHA,
+        comparison_sha256: SHA,
+      } });
+    }
     return route.fulfill(
       item
         ? { json: path.endsWith("/diff") ? diff(item.task.task_id) : item }
@@ -191,7 +235,7 @@ test("自动选中最新记录；代码差异带行号与统计，技术详情�
   await expect(page.locator('[data-kind="add"] .rp-ln').nth(1)).toHaveAttribute("data-ln", "1");
   await expect(verdict(page).getByRole("heading")).toContainText("回归通过");
   await expect(verdict(page)).toContainText("候选通过冻结规则：原错误已修复，正常路径无回归。");
-  await expect(verdict(page)).toContainText("人工接受尚未开放");
+  await expect(verdict(page)).toContainText("仍需人工决定");
   const tech = page.locator(".rp-tech").getByText(A, { exact: true });
   await expect(tech).not.toBeVisible();
   await page.getByText("技术详情", { exact: true }).click();
@@ -336,6 +380,45 @@ test("网络失败可重试且不显示服务端正文", async ({ page }) => {
   await page.getByRole("button", { name: "重试读取列表" }).click();
   await expect(diffRegion(page)).toBeVisible();
 });
+test("B4人工接受、精确下载与幂等请求", async ({ page }) => {
+  const writes = await mock(page, [sample()]);
+  let accepted = false;
+  await page.route(`**/api/repairs/${A}/candidates/${C}/decision`, async (route) => {
+    if (route.request().method() === "GET") return route.fulfill({ json: decisionReceipt(A, accepted) });
+    const body = route.request().postDataJSON() as { request_id: string; expected_revision: number };
+    expect(body.expected_revision).toBe(0);
+    accepted = true;
+    return route.fulfill({ json: decisionReceipt(A, true) });
+  });
+  await page.route(`**/api/repairs/${A}/candidates/${C}/download`, (route) => route.fulfill({
+    status: 200,
+    body: "--- baseline/server.py\n+++ candidate/server.py\n@@ -1 +1 @@\n-old\n+new\n",
+    headers: {
+      "content-type": "text/x-diff; charset=utf-8",
+      "content-disposition": 'attachment; filename="agent-repair-1-20000000.patch"',
+      "x-task-id": A,
+      "x-candidate-id": C,
+      "x-patch-sha256": "2c26b46b68ffc68ff99b453c1d30413413422a3d4d4f4f6f1b7f8f2a7f3c5d6e",
+    },
+  }));
+  await page.goto("/workspace/repairs");
+  await expect(page.getByRole("button", { name: "接受候选" })).toBeEnabled();
+  await page.getByRole("button", { name: "接受候选" }).click();
+  await expect(page.getByText("已接受", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "下载补丁" })).toBeEnabled();
+  expect(writes).toContain("POST");
+});
+test("B4冲突保留页面并给出可操作提示", async ({ page }) => {
+  await mock(page, [sample()]);
+  await page.route(`**/api/repairs/${A}/candidates/${C}/decision`, async (route) => {
+    if (route.request().method() === "GET") return route.fulfill({ json: decisionReceipt(A) });
+    return route.fulfill({ status: 409, json: { error: "decision_conflict" } });
+  });
+  await page.goto("/workspace/repairs");
+  await page.getByRole("button", { name: "接受候选" }).click();
+  await expect(page.locator('.callout[role="alert"]')).toContainText("审批状态已经变化");
+  await expect(page.getByRole("button", { name: "刷新审批状态" })).toBeVisible();
+});
 for (const width of [1280, 390])
   for (const colorScheme of ["light", "dark"] as const)
     for (const tab of ["diff", "regression"] as const)
@@ -380,4 +463,109 @@ test("候选2在代码差异与回归结果之间保持选择，陌生候选明�
   await expect(page).toHaveURL(new RegExp(`task=${A}`));
   await expect(page.getByText("链接中的候选不属于这条修复记录，已改为显示候选 1。")).toBeVisible();
   await expect(switcher.getByRole("link", { name: "候选 1", exact: true })).toHaveAttribute("aria-current", "true");
+});
+
+function approvalReceipt(decision: null | Record<string, unknown> = null, overrides: Record<string, unknown> = {}) {
+  return {
+    schema_version: 1,
+    task_id: A,
+    candidate_id: C,
+    revision: decision ? Number(decision.revision) : 0,
+    current_valid: true,
+    can_accept: !decision || decision.decision !== "accepted",
+    can_reject: !decision || decision.decision !== "rejected",
+    can_download: decision?.decision === "accepted",
+    decision,
+    candidate_sha256: SHA,
+    comparison_sha256: SHA,
+    ...overrides,
+  };
+}
+
+function acceptedDecision(requestId = "50000000-0000-4000-8000-000000000001") {
+  return {
+    schema_version: 1,
+    decision_id: "60000000-0000-4000-8000-000000000001",
+    task_id: A,
+    candidate_id: C,
+    request_id: requestId,
+    decision: "accepted",
+    revision: 1,
+    candidate_sha256: SHA,
+    comparison_id: COMP,
+    comparison_sha256: SHA,
+    created_at: "2026-10-14T00:00:06Z",
+    history: [{ candidate_id: C, decision: "accepted", revision: 1, request_id: requestId, created_at: "2026-10-14T00:00:06Z" }],
+  };
+}
+
+test("B4：接受响应丢失后保留同一 request ID，刷新恢复决定", async ({ page }) => {
+  await mock(page, [sample()]);
+  let receipt = approvalReceipt();
+  let lost = true;
+  const requests: string[] = [];
+  await page.route(`**/api/repairs/${A}/candidates/${C}/decision`, async route => {
+    if (route.request().method() === "GET") return route.fulfill({ json: receipt });
+    const payload = route.request().postDataJSON() as { request_id: string };
+    requests.push(payload.request_id);
+    receipt = approvalReceipt(acceptedDecision(payload.request_id));
+    if (lost) { lost = false; return route.abort(); }
+    return route.fulfill({ json: receipt });
+  });
+  await page.goto("/workspace/repairs");
+  await page.getByRole("button", { name: "接受候选" }).click();
+  await expect(page.locator(".rp-approval [role=alert]")).toContainText("审批未完成");
+  await page.getByRole("button", { name: "刷新审批状态" }).click();
+  await expect(page.getByText("已接受", { exact: true })).toBeVisible();
+  expect(requests).toHaveLength(1);
+  expect(await page.evaluate(() => Object.keys(sessionStorage).filter(key => key.startsWith("awb-decision-pending-v1:")).length)).toBe(0);
+});
+
+test("B4：版本过期保留历史决定但隐藏下载，窄屏键盘无障碍通过", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await mock(page, [sample()]);
+  const decision = acceptedDecision();
+  await page.route(`**/api/repairs/${A}/candidates/${C}/decision`, route => route.fulfill({ json: approvalReceipt(decision, { current_valid: false, can_accept: false, can_reject: false, can_download: false }) }));
+  await page.goto("/workspace/repairs");
+  await expect(page.getByText("历史已接受", { exact: true })).toBeVisible();
+  await expect(page.getByText("当前证据需要重新核对")).toBeVisible();
+  await expect(page.getByRole("button", { name: "下载补丁" })).toHaveCount(0);
+  const audit = await new AxeBuilder({ page }).include("#main").analyze();
+  expect(audit.violations).toEqual([]);
+  await page.keyboard.press("Tab");
+  await expect(page.locator(":focus-visible")).toHaveCount(1);
+});
+
+test("B4：409 冲突提供刷新入口，补丁下载核对关联、摘要和大小", async ({ page }) => {
+  await mock(page, [sample()]);
+  let receipt = approvalReceipt(acceptedDecision());
+  const patch = "--- baseline/server.py\n+++ candidate/server.py\n@@ -1 +1 @@\n-old\n+new\n";
+  const patchSha = createHash("sha256").update(patch).digest("hex");
+  await page.route(`**/api/repairs/${A}/candidates/${C}/decision`, route => {
+    if (route.request().method() === "GET") return route.fulfill({ json: receipt });
+    return route.fulfill({ status: 409, json: { error: "decision_conflict" } });
+  });
+  await page.route(`**/api/repairs/${A}/candidates/${C}/download`, route => route.fulfill({
+    status: 200,
+    body: patch,
+    headers: {
+      "content-type": "text/x-diff; charset=utf-8",
+      "content-disposition": 'attachment; filename="agent-repair-1-20000000.patch"',
+      "x-task-id": A,
+      "x-candidate-id": C,
+      "x-patch-sha256": patchSha,
+    },
+  }));
+  await page.goto("/workspace/repairs");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "下载补丁" }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe("agent-repair-1-20000000.patch");
+  await page.getByRole("button", { name: "拒绝候选" }).click();
+  await expect(page.locator(".rp-approval [role=alert]")).toContainText("审批未完成");
+  await expect(page.getByRole("button", { name: "刷新审批状态" })).toBeVisible();
+  receipt = approvalReceipt(acceptedDecision(), { current_valid: false, can_accept: false, can_reject: false, can_download: false });
+  await page.getByRole("button", { name: "刷新审批状态" }).click();
+  await expect(page.getByText("当前证据需要重新核对")).toBeVisible();
 });

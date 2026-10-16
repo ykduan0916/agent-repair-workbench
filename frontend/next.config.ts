@@ -21,6 +21,8 @@ const config: NextConfig = {
       ...["", "/cancel", "/events"].map(suffix => ({ source: `/api/repair-runs/:id([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})${suffix}`, destination: `http://127.0.0.1:${apiPort}/api/repair-runs/:id${suffix}` })),
       { source: "/api/repairs", destination: `http://127.0.0.1:${apiPort}/api/repairs` },
       { source: "/api/repairs/:id([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})", destination: `http://127.0.0.1:${apiPort}/api/repairs/:id` },
+      { source: "/api/repairs/:id([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/candidates/:candidate([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/decision", destination: `http://127.0.0.1:${apiPort}/api/repairs/:id/candidates/:candidate/decision` },
+      { source: "/api/repairs/:id([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/candidates/:candidate([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/download", destination: `http://127.0.0.1:${apiPort}/api/repairs/:id/candidates/:candidate/download` },
       { source: "/api/repairs/:id([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/candidates/:candidate([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/diff", destination: `http://127.0.0.1:${apiPort}/api/repairs/:id/candidates/:candidate/diff` },
       { source: "/api/repairs/:id([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/comparisons/:comparison([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})", destination: `http://127.0.0.1:${apiPort}/api/repairs/:id/comparisons/:comparison` },
       { source: "/api/analysis-runs/catalog", destination: `http://127.0.0.1:${apiPort}/api/analysis-runs/catalog` },

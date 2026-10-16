@@ -142,9 +142,11 @@ def create_app() -> FastAPI:
     from agent_workbench.run_store.api import router as runs_router
     from agent_workbench.web_analyses.api import router as analysis_runs_router
     from agent_workbench.web_repairs.api import router as repair_runs_router
+    from agent_workbench.web_repairs.approval import router as approval_router
     from agent_workbench.web_runs.api import router as reproductions_router
 
     app.include_router(repair_runs_router)
+    app.include_router(approval_router)
     app.include_router(repairs_router)
     app.include_router(analysis_runs_router)
     app.include_router(reproductions_router)

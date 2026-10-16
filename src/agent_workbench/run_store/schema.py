@@ -145,6 +145,32 @@ repair_comparison_attempts = Table(
     Column("report_sha256", String),
 )
 
+repair_candidate_decisions = Table(
+    "repair_candidate_decisions",
+    metadata,
+    Column("decision_id", String, primary_key=True),
+    Column("task_id", ForeignKey("repair_tasks.task_id"), nullable=False),
+    Column("candidate_id", ForeignKey("repair_candidates.candidate_id"), nullable=False),
+    Column("request_id", String, nullable=False),
+    Column("revision", Integer, nullable=False),
+    Column("payload", LargeBinary, nullable=False),
+    Column("sha256", String, nullable=False),
+)
+
+# Append-only receipt ledger. The decision table is the current head; this table
+# keeps every request receipt so retries remain idempotent after later revisions.
+repair_candidate_decision_events = Table(
+    "repair_candidate_decision_events",
+    metadata,
+    Column("event_id", String, primary_key=True),
+    Column("task_id", ForeignKey("repair_tasks.task_id"), nullable=False),
+    Column("candidate_id", ForeignKey("repair_candidates.candidate_id"), nullable=False),
+    Column("request_id", String, nullable=False),
+    Column("revision", Integer, nullable=False),
+    Column("payload", LargeBinary, nullable=False),
+    Column("sha256", String, nullable=False),
+)
+
 repair_execution_identities = Table(
     "repair_execution_identities",
     metadata,

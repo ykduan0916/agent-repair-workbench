@@ -16,6 +16,7 @@ import { DiffViewer } from "./repairs/diff-viewer";
 import { RegressionTable } from "./repairs/regression-table";
 import RepairRunControls from "./repairs/run-controls";
 import { TechDetails } from "./repairs/tech-details";
+import { ApprovalPanel } from "./repairs/approval-panel";
 import {
   REPAIR_COMMAND, REPAIR_DOCS, caseLabels, comparisonOutcomes, errorLabels, loadDiff, loadRepair, loadRepairs, modeLabels, outcomes, phaseLabels, reasonText,
   type Candidate, type Comparison, type RepairDetail, type RepairDiff, type RepairTask,
@@ -306,7 +307,7 @@ function Detail({ detail, withdrawn, tab, candidate, comparison, notice, diff, d
         <div>
           <h3><span className="rp-verdict-kicker">候选 {candidate.sequence}</span>{verdict.label}</h3>
           <p>{verdict.text}</p>
-          {verdict.pass && <p className="rp-verdict-note">人工接受尚未开放；通过不代表已写回项目。</p>}
+          {verdict.pass && <p className="rp-verdict-note">候选已通过冻结回归，仍需人工决定；接受不会写回项目。</p>}
         </div>
       </div>}
 
@@ -334,6 +335,7 @@ function Detail({ detail, withdrawn, tab, candidate, comparison, notice, diff, d
           ? <RegressionTable comparison={comparison} />
           : <p className="rp-tab-empty">没有可显示的逐项结果。</p>}
       </div>}
+      {candidate.snapshot_status === "verified" && <ApprovalPanel taskId={task.task_id} candidate={candidate} comparison={comparison} onRefresh={onReload} />}
     </>}
 
     <TechDetails detail={detail} candidate={candidate} comparison={comparison} diff={diff} />

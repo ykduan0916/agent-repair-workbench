@@ -112,6 +112,15 @@
   align-content: start;
   scroll-margin-top: 64px;
 }
+.rp-approval { display: grid; gap: 12px; }
+.rp-approval-head { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.rp-approval-head h3 { font-size: var(--fs-md); font-weight: 650; }
+.rp-approval-head p { margin-top: 3px; }
+.rp-approval-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.rp-decision { border-radius: 999px; padding: 4px 9px; font-size: var(--fs-xs); font-weight: 650; }
+.rp-decision-accepted { color: var(--pass); background: color-mix(in srgb, var(--pass) 12%, var(--surface)); }
+.rp-decision-rejected { color: var(--text-2); background: var(--surface-hover); }
+.rp-decision-stale { color: var(--unknown); background: var(--unknown-soft); }
 .rp-detail-skeleton {
   display: grid;
   gap: 12px;

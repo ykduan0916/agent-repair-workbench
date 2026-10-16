@@ -337,7 +337,13 @@ def test_0006_upgrade_preserves_rows_and_rejects_nonempty_downgrade(tmp_path):
                 for row in connection.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name!='alembic_version'"
                 )
-                if row[0] not in ("web_analysis_requests", "web_repair_requests")
+                if row[0]
+                not in (
+                    "web_analysis_requests",
+                    "web_repair_requests",
+                    "repair_candidate_decisions",
+                    "repair_candidate_decision_events",
+                )
             ]
             return {
                 name: connection.execute('SELECT * FROM "' + name + '" ORDER BY 1').fetchall()

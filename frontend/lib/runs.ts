@@ -84,8 +84,24 @@ const UNREADABLE = "本机服务返回的数据无法识别，已停止显示。
 export async function readJSON(url: string, signal: AbortSignal, init: { method: "POST"; body: string } | undefined = undefined, maxBytes = LIMIT): Promise<{ value: unknown; bytes: Uint8Array<ArrayBuffer> }> {
   const response = await fetch(url, { method: init?.method ?? "GET", ...(init ? { body: init.body, headers: { "Content-Type": "application/json" } } : {}), cache: "no-store", signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]) });
   if (!response.ok) {
-    await response.body?.cancel().catch(() => {});
-    throw new RunApiError(response.status === 404 ? "记录或报告已不存在，请刷新列表。" : "本地记录服务暂时不可用，请稍后重试。", response.status);
+    let code = "";
+    try {
+      const raw = await response.text();
+      const parsed = JSON.parse(raw) as { error?: unknown };
+      if (typeof parsed.error === "string") code = parsed.error;
+    } catch { /* keep the generic status message */ }
+    const messages: Record<string, string> = {
+      decision_conflict: "审批状态已经变化，请刷新当前记录后再决定。",
+      request_conflict: "这次请求 ID 已绑定另一种决定，请刷新后重新操作。",
+      version_mismatch: "候选或回归证据已变化，请刷新后重新核对。",
+      decision_stale: "历史决定仍保留，但当前证据已失效，请刷新后重新核对。",
+      approval_busy: "审批服务正在处理其他请求，请稍后重试。",
+      forbidden_origin: "当前页面来源未获本机服务允许。",
+    };
+    const message = response.status === 404
+      ? "记录或报告已不存在，请刷新列表。"
+      : messages[code] ?? "本地记录服务暂时不可用，请稍后重试。";
+    throw new RunApiError(message, response.status);
   }
   if (response.headers.get("content-type")?.split(";")[0].trim() !== "application/json" || !response.body) {
     await response.body?.cancel().catch(() => {});
