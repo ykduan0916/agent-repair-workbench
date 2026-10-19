@@ -140,7 +140,7 @@ export default function RepairRunControls({ selected, onSelect, onRefresh }: Pro
         <button className="btn btn-primary" disabled={disabled} aria-busy={submitting || undefined} onClick={() => void submit()}><Play size={14} aria-hidden="true" />{submitting ? "正在提交…" : "开始修复"}</button>
         <button className="btn btn-ghost" disabled={submitting} onClick={() => setRefresh(v => v + 1)}><RefreshCw size={14} aria-hidden="true" />查询状态</button>
       </div>
-      <p className="muted small">运行内置案例，在隔离副本生成候选并验证回归。不会写回你的代码。</p>
+      <p className="muted small">运行内置案例 → 核对代码差异与回归 → 人工决定 → 下载补丁。不会写回你的代码。 <Link className="link" href="/docs/27-local-development-guide#网页修复与本机常驻服务">操作指南</Link></p>
       {catalog && <details className="rp-budget"><summary>本次预算上限</summary><p className="muted small">模型 {catalog.budget.model_calls} 次 · 工具 {catalog.budget.tool_calls} 次 · 候选 {catalog.budget.candidates} 个 · {catalog.budget.timeout_seconds} 秒 · {formatNumber(catalog.budget.total_tokens)} tokens（单次输出 {formatNumber(catalog.budget.output_tokens)}）。费用未配置，未知用量保留预留。</p></details>}
       {blocked && <p className="small muted">{blocked} <Link className="link" href="/workspace/connections">查看环境</Link>{catalog?.slot.task_id && <button className="link rp-inline" onClick={() => callbacks.current.onSelect(catalog.slot.task_id!)}>查看活动修复</button>}</p>}
       {error && <Callout tone="fail" title="提交存储不可用">{error}</Callout>}

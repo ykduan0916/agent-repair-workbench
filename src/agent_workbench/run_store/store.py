@@ -209,9 +209,10 @@ class RunStore:
             and "repair_candidate_decisions" not in names
         ):
             raise StoreError("schema_incompatible")
-        if revisions == [(REVISION,)] and not {
-            "repair_candidate_decisions", "repair_candidate_decision_events"
-        } <= names:
+        if (
+            revisions == [(REVISION,)]
+            and not {"repair_candidate_decisions", "repair_candidate_decision_events"} <= names
+        ):
             raise StoreError("schema_incompatible")
 
         if (

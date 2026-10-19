@@ -14,6 +14,18 @@ export type ChangelogDay = { date: string; entries: readonly ChangelogEntry[] };
 
 export const changelog: readonly ChangelogDay[] = [
   {
+    date: "2026-10-19",
+    entries: [{
+      slug: "repair-workflow-guide", title: "串起修复、核验与补丁下载",
+      changes: [
+        "修复页补充从运行案例到人工决定、下载补丁的操作路径，并直接链接站内操作指南。",
+        "使用指南说明怎样核对回归、恢复中断请求，以及下载后如何在自己的项目中审阅补丁。",
+        "快速切换或刷新时，修复记录会在服务繁忙后短暂重试读取，减少手动刷新。",
+      ],
+      limit: "当前支持两个内置案例，不支持任意项目修复或自动写回。",
+    }],
+  },
+  {
     date: "2026-10-16",
     entries: [
       {

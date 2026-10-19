@@ -78,11 +78,15 @@ class DecisionStore(ComparisonStore):
 
     @staticmethod
     def _global_revision(connection: Connection, task_id: str) -> int:
-        values = connection.execute(
-            select(repair_candidate_decision_events.c.revision)
-            .where(repair_candidate_decision_events.c.task_id == task_id)
-            .order_by(repair_candidate_decision_events.c.revision)
-        ).scalars().all()
+        values = (
+            connection.execute(
+                select(repair_candidate_decision_events.c.revision)
+                .where(repair_candidate_decision_events.c.task_id == task_id)
+                .order_by(repair_candidate_decision_events.c.revision)
+            )
+            .scalars()
+            .all()
+        )
         expected = list(range(1, len(values) + 1))
         if values != expected:
             raise StoreError("store_corrupt")
@@ -187,8 +191,7 @@ class DecisionStore(ComparisonStore):
             candidate.snapshot
             and candidate.snapshot.tree_sha256 == decision.candidate_sha256
             and comparison
-            and digest(canonical(comparison.model_dump(mode="json")))
-            == decision.comparison_sha256
+            and digest(canonical(comparison.model_dump(mode="json"))) == decision.comparison_sha256
             and comparison.status == "finished"
             and comparison.report is not None
             and comparison.report.outcome == "candidate_verified"
@@ -199,10 +202,12 @@ class DecisionStore(ComparisonStore):
     ) -> CandidateDecision | None:
         rows = (
             connection.execute(
-                select(repair_candidate_decisions).where(
+                select(repair_candidate_decisions)
+                .where(
                     repair_candidate_decisions.c.task_id == task_id,
                     repair_candidate_decisions.c.candidate_id == candidate_id,
-                ).limit(2)
+                )
+                .limit(2)
             )
             .mappings()
             .all()
@@ -312,10 +317,7 @@ class DecisionStore(ComparisonStore):
                     return self._receipt(
                         connection, task_id, candidate_id, historical, candidate, comparison
                     )
-                if (
-                    candidate.status != "committed"
-                    or candidate.snapshot is None
-                ):
+                if candidate.status != "committed" or candidate.snapshot is None:
                     raise StoreError("candidate_not_ready")
                 if comparison is None:
                     raise StoreError("comparison_not_found")
@@ -328,8 +330,7 @@ class DecisionStore(ComparisonStore):
                     raise StoreError("version_mismatch")
                 self._verified(task, candidate, comparison, image_root)
                 if decision == "accepted" and (
-                    comparison.report is None
-                    or comparison.report.outcome != "candidate_verified"
+                    comparison.report is None or comparison.report.outcome != "candidate_verified"
                 ):
                     raise StoreError("acceptance_requires_verified")
                 if decision == "accepted" and any(

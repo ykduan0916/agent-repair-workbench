@@ -1,6 +1,6 @@
 # P1-01：网页修复运行与人工审批
 
-2026-10-16。Feature P1。状态：planned → ready → in_progress；B1a内部接收账本、B1b执行与恢复、B2 API、B3页面操作已验收，B4人工决定与精确补丁下载进入 in_review。前置为P0-06与UI-08验收完成；范围保持本地可信单用户、两个固定审核案例和现有模型。
+2026-10-19。Feature P1。状态：planned → ready → in_progress → in_review → done；B1a内部接收账本、B1b执行与恢复、B2 API、B3页面操作、B4人工决定与精确补丁下载已验收，B5真实闭环验收与独立复核完成，见[41](41-p1-01-b5-delivery.md)。前置为P0-06与UI-08验收完成；范围保持本地可信单用户、两个固定审核案例和现有模型。
 
 ## 1. 用户操作闭环
 
@@ -78,6 +78,6 @@ P0-06与UI-08已验收、B1–B4每批独立Pass、无未闭Defect P0/P1、W01�
 接收表、一次执行权、取消恢复、组合资源边界和14项测试契约见[35：网页修复接收与一次执行权](35-p1-01-b1-admission.md)。B1a/B1b已验收；B2新增写API的实现与部署边界见[38](38-p1-01-b2-delivery.md)。
 
 
-B1a内部实现与验收进度见[36：接收账本交付](36-p1-01-b1a-delivery.md)，父任务仍为in_progress。
+B1a内部实现与验收进度见[36：接收账本交付](36-p1-01-b1a-delivery.md)，该历史阶段父任务为in_progress；当前总体验收见[41](41-p1-01-b5-delivery.md)。
 
 B1b 内部执行与恢复验收进度见[37](37-p1-01-b1b-delivery.md)。

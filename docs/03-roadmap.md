@@ -89,7 +89,7 @@
 |---|---|---|---|---|---|
 | P1-01a | P1 | 固定场景网页受控复现、停止与报告操作 | P0-03/04 | [规格](22-web-reproduction.md)、[设计复审](reviews/P1-01a-design-review.md)；W01～W12，[验收记录](23-p1-01a-delivery.md)；planned → ready → in_progress → in_review → done | done |
 | P1-01b | P1 | 固定案例网页分析与执行控制台 | P0-05 | [实施规格](29-web-analysis-console.md)；planned → ready → in_progress；接收账本、服务、前端控制台、证据阅读与交付文档已独立评审；真实网页模型、容器及T05取消回收链路通过，见[交付记录](30-web-analysis-delivery.md) | done |
-| P1-01 | P1 | 完整 Web 运行/审批接入（不含已拆分的固定场景入口） | P0-06 | planned → ready → in_progress → in_review；[网页修复设计](34-p1-01-web-repair.md)、[B1a](36-p1-01-b1a-delivery.md)、[B1b](37-p1-01-b1b-delivery.md)、[B2](38-p1-01-b2-delivery.md)、[B3](39-p1-01-b3-web-controls.md)、[B4](40-p1-01-b4-approval-download.md)；审批不等于写回 | in_progress |
+| P1-01 | P1 | 完整 Web 运行/审批接入（不含已拆分的固定场景入口） | P0-06 | planned → ready → in_progress → in_review；[网页修复设计](34-p1-01-web-repair.md)、[B1a](36-p1-01-b1a-delivery.md)、[B1b](37-p1-01-b1b-delivery.md)、[B2](38-p1-01-b2-delivery.md)、[B3](39-p1-01-b3-web-controls.md)、[B4](40-p1-01-b4-approval-download.md)、[B5](41-p1-01-b5-delivery.md)与[独立复审](reviews/P1-01-B5-quality-review.md)；in_review → done，审批不等于写回 | done |
 | P1-02 | P1 | 项目经验记忆 | P0-06 | 人工确认、来源、版本匹配、过期/删除；错误经验负向测试 | planned |
 | P1-03 | P1 | CLI/CI 打包与接入指南 | P0-06 | 三个不同工具项目接入，其中一个非开发 fixture；安装/卸载/升级验证 | planned |
 | P1-04 | P1 | 使用验证与独立评测集 | P0-03 | ≥10 个来源明确的故障案例；真实/合成分报；记录真实开发者试用反馈或明确未取得 | planned |
@@ -246,3 +246,11 @@
 - B4 planned → ready → in_progress → in_review → done：已实现候选接受/拒绝、任务级 CAS、旧 request 幂等、追加式决定账本、当前证据失效显示和精确 diff 下载；不写回用户项目。
 - 主库已从 0009 迁移到 0010；迁移会为旧决定补齐候选关联并建立历史账本。审批线程数有界，非法请求和下载大小/摘要/关联均在边界校验。
 - 定向后端 15 passed，完整 Python 测试通过；前端 `repairs.spec.ts` 27 passed；Ruff（B4 范围）、mypy、TypeScript、production build、diff check 通过。独立后端/前端评审均 Pass，B4 已完成；B5 仍负责真实模型/Docker/整体验收。
+
+### 2026-10-19：P1-01 B5 真实闭环交付
+
+- B4 `31a5acf` 已提交推送。B5 planned → ready → in_progress → in_review → done，父 P1-01 完成；[交付与所有尝试](41-p1-01-b5-delivery.md)、[独立评审](reviews/P1-01-B5-quality-review.md)。
+- Python 1589 passed / 67 skipped，真实 Docker 分层 10+3+1+2 项，修正后生产网页 42 passed，当前网关完整闭环 3 passed；Ruff全仓 lint/420格式、mypy138、TS/build通过。跳过项与命令错误分别记录，不凑成功数。
+- 实际修复4次：3次候选通过/1次模型输出不合规；另有2次模型期间停止与首轮环境预检拒绝。最终两案例精确下载和撤回、10容器回收通过；不把最后一次成功推广为通用修复率。
+- UI 增加紧凑操作指南与只读繁忙退避，站内文档和更新记录同步；可信单用户、两个内置案例、隔离候选与不自动写回的边界不变。
+- 下一项 P1-02 先做经验记忆设计；P1-03 三项目接入和 P1-04 独立评测/使用验证仍未完成。

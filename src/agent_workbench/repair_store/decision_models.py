@@ -48,9 +48,7 @@ class CandidateDecision(Contract):
         ):
             raise ValueError("decision_history_mismatch")
         first = max(1, self.revision - len(self.history) + 1)
-        if tuple(item.revision for item in self.history) != tuple(
-            range(first, self.revision + 1)
-        ):
+        if tuple(item.revision for item in self.history) != tuple(range(first, self.revision + 1)):
             raise ValueError("decision_revision_gap")
         return self
 

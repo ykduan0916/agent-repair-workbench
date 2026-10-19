@@ -31,6 +31,7 @@ export const documentationGroups: readonly DocumentationGroup[] = [
     title: "工程记录",
     description: "开发过程中的计划、规格、交付和评审记录，内容停留在写作当时；当前功能以更新记录为准。",
     entries: [
+      { title: "网页修复闭环验收", slug: "41-p1-01-b5-delivery", summary: "真实模型、容器、网页审批与下载的集成门禁，以及测试边界。" },
       { title: "人工决定与精确补丁下载", slug: "40-p1-01-b4-approval-download", summary: "决定账本、版本核对、幂等、并发和补丁下载边界。" },
       { title: "网页修复操作与常驻服务", slug: "39-p1-01-b3-web-controls", summary: "页面开始/停止、刷新恢复、迁移与本机服务的实现和验收。" },
       { title: "修复运行接口与停止说明", slug: "38-p1-01-b2-delivery", summary: "开始、查询与停止接口的实现记录，断连处理及当前部署限制。" },

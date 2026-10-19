@@ -5,7 +5,12 @@ const apiPort = process.env.AWB_API_PORT || "8030";
 if (!/^\d{4,5}$/.test(apiPort) || Number(apiPort) < 1024 || Number(apiPort) > 65535) {
   throw new Error("invalid_local_api_port");
 }
+const distDir = process.env.AWB_NEXT_DIST_DIR;
+if (distDir !== undefined && !/^\.next-b5-[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(distDir)) {
+  throw new Error("invalid_isolated_build_directory");
+}
 const config: NextConfig = {
+  ...(distDir ? { distDir } : {}),
   poweredByHeader: false,
   turbopack: { root: path.resolve(process.cwd(), "..") },
   async redirects() {

@@ -569,3 +569,27 @@ test("B4：409 冲突提供刷新入口，补丁下载核对关联、摘要和�
   await page.getByRole("button", { name: "刷新审批状态" }).click();
   await expect(page.getByText("当前证据需要重新核对")).toBeVisible();
 });
+
+for (const recovers of [true, false]) {
+  test(`详情繁忙读取有界退避：${recovers ? "恢复" : "持续繁忙"}`, async ({ page }) => {
+    const writes = await mock(page);
+    let reads = 0;
+    await page.route(`**/api/repairs/${A}`, route => {
+      reads++;
+      return recovers && reads > 2
+        ? route.fulfill({ json: sample() })
+        : route.fulfill({ status: 429, json: { error: "repair_reads_busy" } });
+    });
+    await page.goto(`/workspace/repairs?task=${A}`);
+    if (recovers) {
+      await expect(diffRegion(page)).toBeVisible();
+      expect(reads).toBe(3);
+    } else {
+      await expect(page.getByText("无法读取这条修复记录", { exact: true })).toBeVisible();
+      expect(reads).toBe(4);
+      await page.waitForTimeout(1000);
+      expect(reads).toBe(4);
+    }
+    expect(writes).toEqual([]);
+  });
+}

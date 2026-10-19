@@ -14,6 +14,7 @@ artifacts/
 
 node_modules/
 .next/
+.next-b5-*/
 playwright-report/
 test-results/
 *.tsbuildinfo

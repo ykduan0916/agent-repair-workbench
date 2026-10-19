@@ -26,9 +26,7 @@ def upgrade() -> None:
         sa.Column("payload", sa.LargeBinary(), nullable=False),
         sa.Column("sha256", sa.String(), nullable=False),
         sa.UniqueConstraint("task_id", "request_id", name="ux_repair_decision_event_request"),
-        sa.UniqueConstraint(
-            "task_id", "revision", name="ux_repair_decision_event_revision"
-        ),
+        sa.UniqueConstraint("task_id", "revision", name="ux_repair_decision_event_revision"),
         sa.CheckConstraint("revision >= 1 AND revision < 256"),
         sa.CheckConstraint("length(payload) <= 32768"),
     )
@@ -49,16 +47,14 @@ def upgrade() -> None:
     for row in rows:
         payload = json.loads(bytes(row["payload"]).decode("utf-8"))
         payload["history"] = [
-            {**item, "candidate_id": row["candidate_id"]}
-            for item in payload.get("history", [])
+            {**item, "candidate_id": row["candidate_id"]} for item in payload.get("history", [])
         ]
         encoded = json.dumps(
             payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
         ).encode("utf-8")
         sha256 = hashlib.sha256(encoded).hexdigest()
         connection.exec_driver_sql(
-            "UPDATE repair_candidate_decisions SET payload=?, sha256=? "
-            "WHERE decision_id=?",
+            "UPDATE repair_candidate_decisions SET payload=?, sha256=? WHERE decision_id=?",
             (encoded, sha256, row["decision_id"]),
         )
         revision = counters.get(row["task_id"], 0) + 1
@@ -80,9 +76,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    if op.get_bind().exec_driver_sql(
-        "SELECT 1 FROM repair_candidate_decision_events LIMIT 1"
-    ).first():
+    if (
+        op.get_bind()
+        .exec_driver_sql("SELECT 1 FROM repair_candidate_decision_events LIMIT 1")
+        .first()
+    ):
         raise ValueError("migration_not_empty")
     op.drop_index("ux_repair_candidate_decision_head", table_name="repair_candidate_decisions")
     op.drop_table("repair_candidate_decision_events")

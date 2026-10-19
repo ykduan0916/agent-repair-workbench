@@ -394,24 +394,30 @@ const diffMismatch = () =>
   new RunApiError(
     "代码差异与记录的候选快照不一致，未展示。请用 CLI 重新运行修复命令后刷新。",
   );
+// Only idempotent record reads retry a busy reader. Writes never enter this path.
+async function readRepairJSON(url: string, signal: AbortSignal) {
+  for (let attempt = 0; ; attempt++) {
+    signal.throwIfAborted();
+    try { return await readJSON(url, signal, undefined, 524288); }
+    catch (error) {
+      if (!(error instanceof RunApiError) || error.status !== 429 || attempt >= 3) throw error;
+      await new Promise<void>((resolve, reject) => {
+        const abort = () => { clearTimeout(timer); reject(signal.reason); };
+        const timer = setTimeout(() => { signal.removeEventListener("abort", abort); resolve(); }, 250 * 2 ** attempt);
+        signal.addEventListener("abort", abort, { once: true });
+        if (signal.aborted) { signal.removeEventListener("abort", abort); abort(); }
+      });
+    }
+  }
+}
 export async function loadRepairs(signal: AbortSignal) {
-  const { value } = await readJSON(
-    "/api/repairs?limit=50",
-    signal,
-    undefined,
-    524288,
-  );
+  const { value } = await readRepairJSON("/api/repairs?limit=50", signal);
   const p = listSchema.safeParse(value);
   if (!p.success) throw fail();
   return p.data.repairs;
 }
 export async function loadRepair(id: string, signal: AbortSignal) {
-  const { value } = await readJSON(
-    `/api/repairs/${uuid.parse(id)}`,
-    signal,
-    undefined,
-    524288,
-  );
+  const { value } = await readRepairJSON(`/api/repairs/${uuid.parse(id)}`, signal);
   const p = detailSchema.safeParse(value);
   if (!p.success || p.data.task.task_id !== id) throw fail();
   return p.data;
@@ -421,11 +427,8 @@ export async function loadDiff(
   item: Candidate,
   signal: AbortSignal,
 ) {
-  const { value } = await readJSON(
-    `/api/repairs/${uuid.parse(taskId)}/candidates/${uuid.parse(item.candidate_id)}/diff`,
-    signal,
-    undefined,
-    524288,
+  const { value } = await readRepairJSON(
+    `/api/repairs/${uuid.parse(taskId)}/candidates/${uuid.parse(item.candidate_id)}/diff`, signal,
   );
   const p = diffSchema.safeParse(value);
   if (!p.success) throw fail();

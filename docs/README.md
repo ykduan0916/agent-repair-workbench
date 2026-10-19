@@ -73,3 +73,7 @@
 - [38：修复运行 API 与任务生命周期](38-p1-01-b2-delivery.md)
 
 - [39：网页修复操作与本机常驻服务](39-p1-01-b3-web-controls.md)
+
+- [40：人工决定与精确补丁下载](40-p1-01-b4-approval-download.md)
+
+- [41：真实网页修复闭环验收](41-p1-01-b5-delivery.md)
