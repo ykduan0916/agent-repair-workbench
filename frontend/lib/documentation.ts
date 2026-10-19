@@ -31,6 +31,7 @@ export const documentationGroups: readonly DocumentationGroup[] = [
     title: "工程记录",
     description: "开发过程中的计划、规格、交付和评审记录，内容停留在写作当时；当前功能以更新记录为准。",
     entries: [
+      { title: "经验检索与使用", slug: "47-m2-r-engine-and-retrieval", summary: "配置授权、索引与检索、来源复核、撤回清理和真实测试边界。" },
       { title: "经验与事件存储", slug: "46-m1-r-authority-event-store", summary: "项目归属、确认与修订、事件去重、后台任务恢复和使用边界。" },
       { title: "记忆引擎选型与契约验证", slug: "45-mr-01-cognee-contract-validation", summary: "Cognee、现有模型、来源和删除的实测结果，以及生产接入门禁。" },
       { title: "长期记忆业务与接入设计", slug: "44-p1-02-memory-product-and-integration", summary: "业务定位、外部Hook、记忆职责、页面操作和验收门禁；尚未实现。" },

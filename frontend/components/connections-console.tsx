@@ -34,8 +34,8 @@ export default function ConnectionsConsole() {
     <EnvSection id="memory" title="经验与事件" description="让后续排查能参考经确认的经验；当前不会自动采集外部会话。">
       <div className="pane env-pane">
         <SettingRow label="项目经验" aside={<CapabilityBadge section="memory" />}>
-          <p className="muted">确认、修订与撤回规则已确定，经验管理和自动检索入口尚未开放。</p>
-          <Link className="link small" href="/docs/46-m1-r-authority-event-store">查看存储与使用边界</Link>
+          <p className="muted">在命令行索引与检索已授权的确认经验。结果附来源和适用版本，撤回后停止取用；网页管理和 Agent 自动参考尚未接通。</p>
+          <Link className="link small" href="/docs/47-m2-r-engine-and-retrieval#6-本机使用">查看配置与使用方法</Link>
         </SettingRow>
         <SettingRow label="外部事件" aside={<StatusBadge tone="neutral">待开发</StatusBadge>}>
           <p className="muted">计划接收授权的测试结果、工具契约变化与用户纠正。Codex 等客户端插件尚未接通。</p>

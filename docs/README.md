@@ -91,3 +91,5 @@
 - [46：经验权威领域与事件存储](46-m1-r-authority-event-store.md) — 领域存储实现；客户端接入与自动记忆尚未开放。
 
 - [M1-R：权威领域与事件存储独立评审](reviews/M1-R-authority-review.md) — 限定领域范围通过，实际引擎和外部Hook尚待接入验收。
+
+- [47：经验检索与使用](47-m2-r-engine-and-retrieval.md) — 本机SDK/CLI、授权、引用校验、账单、清理与真实契约验收。

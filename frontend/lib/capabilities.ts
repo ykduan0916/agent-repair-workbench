@@ -19,7 +19,7 @@ export const capabilities = {
   // B5: the same page guides execution, verification, human decisions and exact diff download.
   repairs: { status: "web", note: "运行两个内置案例，核对代码差异和冻结回归，人工决定后下载补丁；格式错误可在预算内纠正一次，候选不写回代码。" },
   connections: { status: "web", note: "查看本机环境与接口；自定义工具接入待开发。" },
-  memory: { status: "planned", note: "确认与修订存储已实现；经验管理、检索和外部采集尚未开放。" },
+  memory: { status: "cli", note: "可在命令行索引与检索已授权的确认经验；网页管理、Agent 自动取用与外部采集尚未开放。" },
 } as const satisfies Record<string, { status: CapabilityStatus; note: string }>;
 
 export type CapabilityKey = keyof typeof capabilities;

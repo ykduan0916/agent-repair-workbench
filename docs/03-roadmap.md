@@ -90,7 +90,7 @@
 | P1-01a | P1 | 固定场景网页受控复现、停止与报告操作 | P0-03/04 | [规格](22-web-reproduction.md)、[设计复审](reviews/P1-01a-design-review.md)；W01～W12，[验收记录](23-p1-01a-delivery.md)；planned → ready → in_progress → in_review → done | done |
 | P1-01b | P1 | 固定案例网页分析与执行控制台 | P0-05 | [实施规格](29-web-analysis-console.md)；planned → ready → in_progress；接收账本、服务、前端控制台、证据阅读与交付文档已独立评审；真实网页模型、容器及T05取消回收链路通过，见[交付记录](30-web-analysis-delivery.md) | done |
 | P1-01 | P1 | 完整 Web 运行/审批接入（不含已拆分的固定场景入口） | P0-06 | planned → ready → in_progress → in_review；[网页修复设计](34-p1-01-web-repair.md)、[B1a](36-p1-01-b1a-delivery.md)、[B1b](37-p1-01-b1b-delivery.md)、[B2](38-p1-01-b2-delivery.md)、[B3](39-p1-01-b3-web-controls.md)、[B4](40-p1-01-b4-approval-download.md)、[B5](41-p1-01-b5-delivery.md)与[独立复审](reviews/P1-01-B5-quality-review.md)；in_review → done，审批不等于写回 | done |
-| P1-02 | P1 | 项目经验记忆与授权事件接入 | P0-06 | [当前业务与接入规格](44-p1-02-memory-product-and-integration.md)；M0-B done（[独立评审](reviews/P1-02-memory-business-review.md)）；MR-01 done（[选型与实测](45-mr-01-cognee-contract-validation.md)，实验Conditional Pass）；M1-R done（[领域存储](46-m1-r-authority-event-store.md)）；下一项M2-R引擎接入与取用验证；[42](42-p1-02-memory-research-design.md)旧规格及M1 ready已被取代；记忆领域存储已实现，网页管理/实际检索/外部接入尚未开放 | in_progress |
+| P1-02 | P1 | 项目经验记忆与授权事件接入 | P0-06 | [当前业务与接入规格](44-p1-02-memory-product-and-integration.md)；M0-B done（[独立评审](reviews/P1-02-memory-business-review.md)）；MR-01 done（[选型与实测](45-mr-01-cognee-contract-validation.md)，实验Conditional Pass）；M1-R done（[领域存储](46-m1-r-authority-event-store.md)）；M2-R done（[引擎接入与取用验证](47-m2-r-engine-and-retrieval.md)）；下一项M3-R Agent参考与内部经验生成；[42](42-p1-02-memory-research-design.md)旧规格及M1 ready已被取代；记忆领域及本机SDK/CLI检索已实现；网页管理/Agent自动取用/外部接入尚未开放 | in_progress |
 | P1-03 | P1 | CLI/CI 打包与接入指南 | P0-06 | 三个不同工具项目接入，其中一个非开发 fixture；安装/卸载/升级验证 | planned |
 | P1-04 | P1 | 使用验证与独立评测集 | P0-03 | ≥10 个来源明确的故障案例；真实/合成分报；记录真实开发者试用反馈或明确未取得 | planned |
 | P2-01 | P2 | Streamable HTTP MCP | P1-03 | 认证、重连、版本、SSRF/网络边界方案与集成测试 | planned |
@@ -288,3 +288,10 @@
 - 用户授权实施，planned → ready → in_progress；[46](46-m1-r-authority-event-store.md)冻结schema/迁移/限额与验收。领域层不开放HTTP或Hook，M2-R接引擎，M4-R接客户端与管理页面。
 
 - M1-R按in_progress → in_review → done完成；[独立评审](reviews/M1-R-authority-review.md)1项P1/1项P2修复复审关闭。全量1669通过/67跳过（最后只读helper前），最终专项46通过；Ruff445/mypy145、前端构建/类型与15项浏览器通过。0010→0011主库备份迁移，20旧表183行一致；9新表全空。前端边界说明、站内文档和launchd常驻更新完成。M2-R再接实际Cognee/模型与参考有效性，Hook客户端属M4-R。
+
+### 2026-10-19：M2-R 引擎接入与参考复核
+
+- 用户授权先推送既有成果，`f8a6f35`已推main；随后按planned → ready → in_progress → in_review → done交付[47](47-m2-r-engine-and-retrieval.md)。本批新改动尚未提交。
+- 授权/策略/来源scope绑定实际请求预留，Cognee独立私有根及临时网关，exact/historical_hint、冲突与撤回拒用、账单/取消/物理清理接通本机SDK/CLI；没有接入产品Agent或Hook。
+- 独立权威与运行评审共7项P1修复复审，UI锚点P2关闭；上游diskcache风险在可信本机边界书面接受补偿并持续跟踪。全量1720通过/68跳过，最后专项98通过，15浏览器通过。真实门禁3次：1unknown失败保留、2次通过，非业务效果统计。
+- 主库0011→0012备份迁移，29旧表228行一致，前端CLI状态/文档/迭代历史与常驻服务更新。下一项M3-R不自动扩大外发或执行权限。

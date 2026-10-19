@@ -16,6 +16,14 @@ export const changelog: readonly ChangelogDay[] = [
   {
     date: "2026-10-19",
     entries: [{
+      slug: "authorized-memory-retrieval", title: "在命令行检索经确认的项目经验",
+      changes: [
+        "经验检索返回来源和适用版本，明确区分同版本参考与跨版本历史线索。",
+        "新增授权、有效期与冲突检查；撤回后的经验停止取用，派生索引可单独清理。",
+        "环境与接入页提供配置和使用指引。",
+      ],
+      limit: "须先由本机宿主配置授权；网页管理、分析过程自动参考和外部客户端采集尚未接通。",
+    }, {
       slug: "memory-integration-guide", title: "明确项目经验与外部事件的接入边界",
       changes: [
         "环境与接入页新增经验与事件说明，可直接查看确认、修订、撤回及外部事件接入文档。",

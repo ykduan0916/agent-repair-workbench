@@ -32,7 +32,7 @@ for (const theme of ["dark", "light"] as const) {
     test(`${theme} ${width}px 文档阅读排版与可访问性`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
-      for (const url of ["/docs/46-m1-r-authority-event-store", "/docs/45-mr-01-cognee-contract-validation", "/docs/44-p1-02-memory-product-and-integration", "/docs/42-p1-02-memory-research-design", "/docs/02-architecture", "/docs/17-agent-tools-testing-plan", "/docs/getting-started"]) {
+      for (const url of ["/docs/47-m2-r-engine-and-retrieval", "/docs/46-m1-r-authority-event-store", "/docs/45-mr-01-cognee-contract-validation", "/docs/44-p1-02-memory-product-and-integration", "/docs/42-p1-02-memory-research-design", "/docs/02-architecture", "/docs/17-agent-tools-testing-plan", "/docs/getting-started"]) {
         await page.goto(url);
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
         const diagrams = page.locator(".doc-diagram");

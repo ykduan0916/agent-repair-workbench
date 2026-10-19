@@ -28,7 +28,9 @@ class MemoryJobs(RunStore):
         item = head(c, job["project_id"], job["memory_id"])
         return bool(item["version"] == job["generation"] and item["state"] == "confirmed")
 
-    def claim_job(self, project_id: str) -> Lease | None:
+    def claim_job(self, project_id: str, *, job_id: str | None = None) -> Lease | None:
+        if job_id is not None:
+            key(job_id)
         with self._transaction(write=True) as c:
             project(c, project_id)
             now = self._now()
@@ -56,6 +58,8 @@ class MemoryJobs(RunStore):
                 .all()
             )
             for job in rows:
+                if job_id is not None and job["job_id"] != job_id:
+                    continue
                 if job["attempt"] >= 3:
                     c.exec_driver_sql(
                         "UPDATE memory_jobs SET state='failed',lease_hash=NULL WHERE job_id=?",
@@ -187,6 +191,7 @@ class MemoryJobs(RunStore):
             if job["kind"] == "cleanup":
                 raise StoreError("cleanup_model_forbidden")
             connection(c, project_id, job["connection_id"])
+            self._authorize_call(c, project_id, lease)
             prior = (
                 c.exec_driver_sql(
                     "SELECT * FROM memory_calls WHERE job_id=? AND call_id=?",
@@ -224,6 +229,9 @@ class MemoryJobs(RunStore):
                 reserved_tokens=tokens,
                 actual_tokens=None,
             )
+
+    def _authorize_call(self, c: Connection, project_id: str, lease: Lease) -> None:
+        """Execution adapters must add their authorization inside the reservation transaction."""
 
     @staticmethod
     def _call(row: Row) -> CallReceipt:

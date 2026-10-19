@@ -352,6 +352,11 @@ def test_0006_upgrade_preserves_rows_and_rejects_nonempty_downgrade(tmp_path):
                     "memory_jobs",
                     "memory_projections",
                     "memory_calls",
+                    "memory_grants",
+                    "memory_policies",
+                    "memory_operations",
+                    "memory_engine_roots",
+                    "memory_engine_config",
                 )
             ]
             return {
