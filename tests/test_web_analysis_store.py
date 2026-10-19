@@ -343,6 +343,15 @@ def test_0006_upgrade_preserves_rows_and_rejects_nonempty_downgrade(tmp_path):
                     "web_repair_requests",
                     "repair_candidate_decisions",
                     "repair_candidate_decision_events",
+                    "memory_projects",
+                    "memory_connections",
+                    "memory_events",
+                    "memory_heads",
+                    "memory_revisions",
+                    "memory_receipts",
+                    "memory_jobs",
+                    "memory_projections",
+                    "memory_calls",
                 )
             ]
             return {

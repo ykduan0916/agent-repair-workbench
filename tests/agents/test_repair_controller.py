@@ -274,7 +274,7 @@ def test_role_forbidden_candidate_is_rejected_before_tool(ctx):
             ),
         )
 
-    runtime, adapter = controller(ctx, [malicious])
+    runtime, adapter = controller(ctx, [malicious, malicious])
     result = execute(runtime)
     assert result.cursor.task.outcome == "inconclusive" and result.cursor.task.candidate_count == 0
     assert result.cursor.task.usage.tool_calls == 0 and not ctx.attempts
@@ -503,7 +503,7 @@ def test_verified_claim_in_model_json_cannot_set_outcome(ctx):
     def malicious(value):
         return dict(action="conclude", outcome="candidate_verified")
 
-    runtime, adapter = controller(ctx, [malicious])
+    runtime, adapter = controller(ctx, [malicious, malicious])
     result = execute(runtime)
     assert result.cursor.task.outcome == "inconclusive" and not ctx.attempts
     assert result.cursor.task.candidate_count == 0

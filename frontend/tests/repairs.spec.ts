@@ -593,3 +593,26 @@ for (const recovers of [true, false]) {
     expect(writes).toEqual([]);
   });
 }
+
+for (const [code, label] of [
+  ["MODEL_DECISION_JSON_INVALID", "模型决策 JSON 格式错误"],
+  ["MODEL_ROLE_SCHEMA_INVALID", "模型输出不符合当前角色格式"],
+  ["MODEL_DECISION_LIMIT", "模型决策超出大小或嵌套限制"],
+  ["MODEL_EVIDENCE_INVALID", "模型引用的证据无法核对"],
+  ["MODEL_HANDOFF_INVALID", "当前执行状态不允许角色交接"],
+  ["MODEL_EVIDENCE_REQUIRED", "模型缺少继续执行所需的证据"],
+]) {
+  test(`修复停止原因可读取并显示：${code}`, async ({ page }) => {
+    const value = sample();
+    const failed = {
+      ...value,
+      task: { ...value.task, recorded_outcome: "inconclusive", error_code: code, candidate_count: 0 },
+      candidates: [], comparisons: [],
+    } as unknown as ReturnType<typeof sample>;
+    const writes = await mock(page, [failed]);
+    await page.goto(`/workspace/repairs?task=${A}`);
+    await expect(page.locator("#main")).toContainText(label);
+    await expect(page.getByRole("button", { name: "接受候选", exact: true })).toHaveCount(0);
+    expect(writes).toEqual([]);
+  });
+}

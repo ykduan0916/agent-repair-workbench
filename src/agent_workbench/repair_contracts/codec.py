@@ -19,13 +19,13 @@ from agent_workbench.repair_contracts.common import RepairRole
 type RepairRoleOutput = DiagnosisOutput | RepairOutput | VerificationOutput | SingleOutput
 
 
-def decode_role(raw: bytes, role: RepairRole) -> RepairRoleOutput:
+def decode_role(raw: bytes, role: RepairRole, *, diagnostic: bool = False) -> RepairRoleOutput:
     if role == "diagnosis":
-        return decode(raw, DIAGNOSIS_ADAPTER)
+        return decode(raw, DIAGNOSIS_ADAPTER, diagnostic=diagnostic)
     if role == "repair":
-        return decode(raw, REPAIR_ADAPTER)
+        return decode(raw, REPAIR_ADAPTER, diagnostic=diagnostic)
     if role == "verification":
-        return decode(raw, VERIFICATION_ADAPTER)
+        return decode(raw, VERIFICATION_ADAPTER, diagnostic=diagnostic)
     if role == "single":
-        return decode(raw, SINGLE_ADAPTER)
+        return decode(raw, SINGLE_ADAPTER, diagnostic=diagnostic)
     raise PolicyError("UNKNOWN_ROLE")

@@ -289,7 +289,7 @@ def verify_browser_evidence(directory: Path, tasks: list[dict[str, Any]]) -> Non
         observed.add(cancelled["task_id"])
         record = next((task for task in tasks if task["task_id"] == cancelled["task_id"]), None)
         if record is None or (
-            record["outcome"] != "outcome_unknown" or record["error_code"] != "MODEL_USAGE_UNKNOWN"
+            record["outcome"] != "outcome_unknown" or record["error_code"] != "MODEL_CANCELLED"
         ):
             raise GateFailure("cancellation_task_outcome_mismatch")
         if observed != {task["task_id"] for task in tasks}:

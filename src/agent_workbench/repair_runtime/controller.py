@@ -26,6 +26,11 @@ from agent_workbench.controlled_tools.responses import ResourceError
 from agent_workbench.controlled_tools.runtime import _owned
 from agent_workbench.mcp_config import digest
 from agent_workbench.model_gateway.gateway import GatewayError, PreparedCall, Reply
+from agent_workbench.model_gateway.rejections import (
+    CORRECTABLE,
+    FORMAT_CORRECTIONS,
+    rejection_code,
+)
 from agent_workbench.model_gateway.repair import OUTPUT_LIMIT, RepairAdapter
 from agent_workbench.orchestration.policy import PolicyError
 from agent_workbench.repair_cases.bindings import validate_baseline_binding
@@ -82,6 +87,8 @@ class RepairController:
         self._completed_reads: dict[str, dict[str, JsonValue]] = {}
         self._last_tool_feedback: dict[str, JsonValue] | None = None
         self._request_corrections = 0
+        self._format_corrections = 0
+        self._format_feedback: ErrorCode | None = None
         self._role: RepairRole = "single" if mode == "single_role" else "diagnosis"
         self._observed = False
         self._candidate = False
@@ -162,6 +169,20 @@ class RepairController:
                 ),
             },
         ]
+        if self._format_feedback is not None:
+            # Host-owned enums only: no rejected text, validation values or prior tool replay.
+            messages.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "Your last reply was rejected before any tool action from that reply. "
+                        f"Reason: {self._format_feedback}. Return one emit_decision matching "
+                        "the current role schema. Use the current execution_progress and "
+                        "completed_reads; do not repeat completed work. This is the only "
+                        "format correction allowed for this task."
+                    ),
+                }
+            )
         prepared = self.adapter.prepare(
             self._role, messages, min(OUTPUT_LIMIT, self.cursor.task.budget.output_tokens)
         )
@@ -189,39 +210,76 @@ class RepairController:
         except Exception:
             interrupted = False
             reply = Reply(error="MODEL_TRANSPORT_ERROR")
+        if not reply.error:
+            code = self._decision_error(reply)
+            if code:
+                reply = replace(reply, decision=None, error=code)
         self.cursor = self.store.settle_model(admitted.claim, reply, **self._cas())
         if interrupted:
             self._cancelled = True
             raise Halt("cancelled", "CANCELLED")
         if self.cursor.task.phase == "finished":
             return reply
-        if reply.error or reply.decision is None:
-            raise Halt("inconclusive", "INVALID_MODEL_OUTPUT")
         return reply
 
-    def _handoff(self, decision: RoleConclusion) -> None:
+    def _decision_error(self, reply: Reply) -> ErrorCode | None:
+        if reply.decision is None:
+            return "MODEL_DECISION_INVALID"
+        try:
+            decision = decode_role(reply.decision, self._role, diagnostic=True)
+        except PolicyError as error:
+            reason = error.args[0] if error.args and isinstance(error.args[0], str) else None
+            return (
+                "MODEL_DECISION_LIMIT"
+                if reason == "MESSAGE_LIMIT_EXCEEDED"
+                else rejection_code(reason)
+            )
+        if isinstance(decision, RoleConclusion):
+            try:
+                self._next_role(decision)
+            except Halt as halt:
+                return halt.code
+        return None
+
+    def _next_role(self, decision: RoleConclusion) -> RepairRole:
         for ref in decision.evidence_refs:
-            self.registry.evidence(ref, "summary")
+            try:
+                self.registry.evidence(ref, "summary")
+            except ResourceError:
+                raise Halt("inconclusive", "MODEL_EVIDENCE_INVALID") from None
         if decision.disposition == "needs_evidence":
-            raise Halt("inconclusive", "INVALID_MODEL_OUTPUT")
+            raise Halt("inconclusive", "MODEL_EVIDENCE_REQUIRED")
         if self._role == "diagnosis" and self._observed:
-            self._role = "repair"
+            return "repair"
         elif self._role == "repair" and self._candidate:
-            self._role = "verification"
+            return "verification"
         elif self._role == "verification" and self._rejected:
-            self._role = "repair"
+            return "repair"
         else:
-            raise Halt("inconclusive", "INVALID_MODEL_OUTPUT")
+            raise Halt("inconclusive", "MODEL_HANDOFF_INVALID")
 
     async def _turn(self, _: Route) -> Route:
         reply = await self._model()
         self._check_cancelled()
         if self.cursor.task.phase == "finished":
             return {"route": "end"}
+        if reply.error or reply.decision is None:
+            code = rejection_code(reply.error)
+            if (
+                code in CORRECTABLE
+                and reply.usage_known
+                and self.cursor.task.phase == "ready"
+                and self._format_corrections < FORMAT_CORRECTIONS
+            ):
+                self._format_corrections += 1
+                self._format_feedback = code
+                return {"route": "continue"}
+            raise Halt("inconclusive", code)
+        self._format_feedback = None
         assert reply.decision is not None
         decision = decode_role(reply.decision, self._role)
         if isinstance(decision, RoleConclusion):
-            self._handoff(decision)
+            self._role = self._next_role(decision)
             return {"route": "continue"}
         # Preserve the tool request identity: bridge replay must remain read-only.
         request = decision.request
@@ -444,4 +502,5 @@ class RepairController:
             self._materials.clear()
             self._completed_reads.clear()
             self._last_tool_feedback = None
+            self._format_feedback = None
         return RepairResult(self.cursor, self._reconcile, self._cancelled)

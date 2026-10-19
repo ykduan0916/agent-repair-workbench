@@ -135,13 +135,17 @@ class Adapter(Protocol):
     async def send(self, request: PreparedCall, timeout: float) -> Reply: ...
 
 
+class _ResponseLimit(ValueError):
+    pass
+
+
 def _parse(raw: bytes) -> Any:
     parsed = json.loads(raw.decode("utf-8"), object_pairs_hook=_pairs, parse_constant=_constant)
     pending = [(parsed, 0)]
     while pending:
         value, depth = pending.pop()
         if depth > 30:
-            raise ValueError("depth")
+            raise _ResponseLimit("depth")
         if isinstance(value, dict):
             pending.extend((v, depth + 1) for v in value.values())
         elif isinstance(value, list):
@@ -187,17 +191,21 @@ def decode_reply(raw: bytes, request: PreparedCall) -> Reply:
         try:
             argument_bytes = args.encode("utf-8")
             if len(argument_bytes) > 65536:
-                raise ValueError("limit")
+                return Reply(input_tokens=i, output_tokens=o, error="MODEL_DECISION_LIMIT")
             wrapper = _parse(argument_bytes)
-            if not isinstance(wrapper, dict) or set(wrapper) != {"decision"}:
-                raise ValueError("wrapper")
-            if not isinstance(wrapper["decision"], dict):
-                raise ValueError("decision")
-            decision = canonical(wrapper["decision"])
+        except _ResponseLimit:
+            return Reply(input_tokens=i, output_tokens=o, error="MODEL_DECISION_LIMIT")
         except (UnicodeError, ValueError, RecursionError, TypeError):
+            return Reply(input_tokens=i, output_tokens=o, error="MODEL_DECISION_JSON_INVALID")
+        if (
+            not isinstance(wrapper, dict)
+            or set(wrapper) != {"decision"}
+            or not isinstance(wrapper["decision"], dict)
+        ):
             return Reply(input_tokens=i, output_tokens=o, error="MODEL_DECISION_INVALID")
+        decision = canonical(wrapper["decision"])
         if len(decision) > 65536:
-            return Reply(input_tokens=i, output_tokens=o, error="MODEL_DECISION_INVALID")
+            return Reply(input_tokens=i, output_tokens=o, error="MODEL_DECISION_LIMIT")
         return Reply(decision=decision, input_tokens=i, output_tokens=o)
     except (ValueError, TypeError, AttributeError, RecursionError, UnicodeError):
         return Reply(error="MODEL_RESPONSE_INVALID")

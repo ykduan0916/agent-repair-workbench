@@ -4,7 +4,7 @@ import json
 import math
 from typing import TypeVar
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 
 from agent_workbench.agents.diagnosis.contracts import DiagnosisOutput
 from agent_workbench.agents.repair.contracts import RepairOutput
@@ -20,6 +20,10 @@ VERIFICATION_ADAPTER = TypeAdapter[VerificationOutput](VerificationOutput)
 T = TypeVar("T")
 
 
+class _MessageDepthLimit(ValueError):
+    pass
+
+
 def _pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
     result: dict[str, object] = {}
     for key, value in pairs:
@@ -33,7 +37,7 @@ def _constant(value: str) -> object:
     raise ValueError("non_finite_number")
 
 
-def decode[T](raw: bytes, adapter: TypeAdapter[T]) -> T:
+def decode[T](raw: bytes, adapter: TypeAdapter[T], *, diagnostic: bool = False) -> T:
     if len(raw) > MAX_MESSAGE_BYTES:
         raise PolicyError("MESSAGE_LIMIT_EXCEEDED")
     try:
@@ -48,14 +52,32 @@ def decode[T](raw: bytes, adapter: TypeAdapter[T]) -> T:
             if isinstance(value, float) and not math.isfinite(value):
                 raise ValueError("non_finite_number")
             if depth > 20:
-                raise ValueError("depth_limit")
+                raise _MessageDepthLimit("depth_limit")
             if isinstance(value, dict):
                 pending.extend((item, depth + 1) for item in value.values())
             elif isinstance(value, list):
                 pending.extend((item, depth + 1) for item in value)
-        return adapter.validate_json(raw)
+    except _MessageDepthLimit:
+        raise PolicyError("MESSAGE_LIMIT_EXCEEDED" if diagnostic else "INVALID_MESSAGE") from None
     except (ValueError, RecursionError, UnicodeError):
-        raise PolicyError("INVALID_MESSAGE") from None
+        raise PolicyError(
+            "MODEL_DECISION_JSON_INVALID" if diagnostic else "INVALID_MESSAGE"
+        ) from None
+    try:
+        return adapter.validate_json(raw)
+    except ValidationError as error:
+        if diagnostic and any(
+            item["type"] == "handoff_evidence_required"
+            for item in error.errors(include_input=False, include_context=False, include_url=False)
+        ):
+            raise PolicyError("MODEL_EVIDENCE_REQUIRED") from None
+        raise PolicyError(
+            "MODEL_ROLE_SCHEMA_INVALID" if diagnostic else "INVALID_MESSAGE"
+        ) from None
+    except (ValueError, RecursionError, UnicodeError):
+        raise PolicyError(
+            "MODEL_ROLE_SCHEMA_INVALID" if diagnostic else "INVALID_MESSAGE"
+        ) from None
 
 
 def decode_role(raw: bytes, role: Role) -> RoleOutput:

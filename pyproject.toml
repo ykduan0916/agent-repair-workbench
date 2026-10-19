@@ -50,6 +50,8 @@ line-length = 100
 select = ["E", "F", "I", "B", "UP"]
 
 [tool.mypy]
+# Pydantic 2.14 uses TypeForm for TypeAdapter; retain strict checking of PEP 695 aliases.
+enable_incomplete_feature = ["TypeForm"]
 exclude = ["src/agent_workbench/agents/[^/]+/tests/"]
 python_version = "3.12"
 strict = true

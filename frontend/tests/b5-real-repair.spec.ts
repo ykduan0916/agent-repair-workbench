@@ -69,14 +69,14 @@ test("real model pending: explicit stop preserves unknown usage and never replay
     expect(receipt.active).toBe(false);
     expect(receipt.cancel_requested).toBe(true);
     expect(receipt.task.outcome).toBe("outcome_unknown");
-    expect(receipt.task.error_code).toBe("MODEL_USAGE_UNKNOWN");
+    expect(receipt.task.error_code).toBe("MODEL_CANCELLED");
     expect(receipt.task.usage.model_calls).toBe(callsBefore);
     expect(receipt.task.usage.usage_complete).toBe(false);
     expect(receipt.task.usage.reserved_tokens).toBe((evidence.before_cancel as typeof receipt).task.usage.reserved_tokens);
     expect(receipt.task.usage.reserved_tokens).toBeGreaterThan(0);
     const events = await read(page.request, `/api/repair-runs/${taskId}/events`, reads);
     evidence.events = events;
-    expect(events.events.some((event: { operation: string; error_code?: string }) => event.operation === "model" && event.error_code === "MODEL_USAGE_UNKNOWN")).toBe(true);
+    expect(events.events.some((event: { operation: string; error_code?: string }) => event.operation === "model" && event.error_code === "MODEL_CANCELLED")).toBe(true);
     await page.reload();
     const after = await read(page.request, `/api/repair-runs/${taskId}`, reads);
     expect(after.task.usage).toEqual(receipt.task.usage);

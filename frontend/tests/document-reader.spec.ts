@@ -32,9 +32,15 @@ for (const theme of ["dark", "light"] as const) {
     test(`${theme} ${width}px 文档阅读排版与可访问性`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
-      for (const url of ["/docs/02-architecture", "/docs/17-agent-tools-testing-plan", "/docs/getting-started"]) {
+      for (const url of ["/docs/46-m1-r-authority-event-store", "/docs/45-mr-01-cognee-contract-validation", "/docs/44-p1-02-memory-product-and-integration", "/docs/42-p1-02-memory-research-design", "/docs/02-architecture", "/docs/17-agent-tools-testing-plan", "/docs/getting-started"]) {
         await page.goto(url);
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        const diagrams = page.locator(".doc-diagram");
+        for (let index = 0; index < await diagrams.count(); index++) {
+          const image = diagrams.nth(index).locator("img");
+          await expect(image).toBeVisible();
+          await expect.poll(() => image.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+        }
         expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), url).toBe(false);
         const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
         expect(results.violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => n.target) })), url).toEqual([]);

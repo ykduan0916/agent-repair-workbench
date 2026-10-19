@@ -166,4 +166,7 @@ def test_wrapper_does_not_weaken_role_boundary(args):
     obj = json.loads(response())
     obj["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"] = args
     reply = decode_reply(json.dumps(obj).encode(), adapter().prepare("diagnosis", [], 8192))
-    assert reply.usage_known and reply.error == "MODEL_DECISION_INVALID"
+    expected = (
+        "MODEL_DECISION_JSON_INVALID" if args.count('"decision"') == 2 else "MODEL_DECISION_INVALID"
+    )
+    assert reply.usage_known and reply.error == expected

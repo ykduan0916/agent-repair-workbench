@@ -3,6 +3,7 @@
 from typing import Literal, Self
 
 from pydantic import model_validator
+from pydantic_core import PydanticCustomError
 
 from agent_workbench.orchestration.contracts import (
     Contract,
@@ -33,5 +34,5 @@ class RoleConclusion(Contract):
     def supporting_evidence(self) -> Self:
         unique_evidence(self.evidence_refs)
         if self.disposition == "handoff" and not self.evidence_refs:
-            raise ValueError("handoff_requires_evidence")
+            raise PydanticCustomError("handoff_evidence_required", "handoff_requires_evidence")
         return self

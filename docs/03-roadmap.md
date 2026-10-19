@@ -90,7 +90,7 @@
 | P1-01a | P1 | 固定场景网页受控复现、停止与报告操作 | P0-03/04 | [规格](22-web-reproduction.md)、[设计复审](reviews/P1-01a-design-review.md)；W01～W12，[验收记录](23-p1-01a-delivery.md)；planned → ready → in_progress → in_review → done | done |
 | P1-01b | P1 | 固定案例网页分析与执行控制台 | P0-05 | [实施规格](29-web-analysis-console.md)；planned → ready → in_progress；接收账本、服务、前端控制台、证据阅读与交付文档已独立评审；真实网页模型、容器及T05取消回收链路通过，见[交付记录](30-web-analysis-delivery.md) | done |
 | P1-01 | P1 | 完整 Web 运行/审批接入（不含已拆分的固定场景入口） | P0-06 | planned → ready → in_progress → in_review；[网页修复设计](34-p1-01-web-repair.md)、[B1a](36-p1-01-b1a-delivery.md)、[B1b](37-p1-01-b1b-delivery.md)、[B2](38-p1-01-b2-delivery.md)、[B3](39-p1-01-b3-web-controls.md)、[B4](40-p1-01-b4-approval-download.md)、[B5](41-p1-01-b5-delivery.md)与[独立复审](reviews/P1-01-B5-quality-review.md)；in_review → done，审批不等于写回 | done |
-| P1-02 | P1 | 项目经验记忆 | P0-06 | 人工确认、来源、版本匹配、过期/删除；错误经验负向测试 | planned |
+| P1-02 | P1 | 项目经验记忆与授权事件接入 | P0-06 | [当前业务与接入规格](44-p1-02-memory-product-and-integration.md)；M0-B done（[独立评审](reviews/P1-02-memory-business-review.md)）；MR-01 done（[选型与实测](45-mr-01-cognee-contract-validation.md)，实验Conditional Pass）；M1-R done（[领域存储](46-m1-r-authority-event-store.md)）；下一项M2-R引擎接入与取用验证；[42](42-p1-02-memory-research-design.md)旧规格及M1 ready已被取代；记忆领域存储已实现，网页管理/实际检索/外部接入尚未开放 | in_progress |
 | P1-03 | P1 | CLI/CI 打包与接入指南 | P0-06 | 三个不同工具项目接入，其中一个非开发 fixture；安装/卸载/升级验证 | planned |
 | P1-04 | P1 | 使用验证与独立评测集 | P0-03 | ≥10 个来源明确的故障案例；真实/合成分报；记录真实开发者试用反馈或明确未取得 | planned |
 | P2-01 | P2 | Streamable HTTP MCP | P1-03 | 认证、重连、版本、SSRF/网络边界方案与集成测试 | planned |
@@ -254,3 +254,37 @@
 - 实际修复4次：3次候选通过/1次模型输出不合规；另有2次模型期间停止与首轮环境预检拒绝。最终两案例精确下载和撤回、10容器回收通过；不把最后一次成功推广为通用修复率。
 - UI 增加紧凑操作指南与只读繁忙退避，站内文档和更新记录同步；可信单用户、两个内置案例、隔离候选与不自动写回的边界不变。
 - 下一项 P1-02 先做经验记忆设计；P1-03 三项目接入和 P1-04 独立评测/使用验证仍未完成。
+
+### 2026-10-19：P1-02 先行调研与设计
+
+- B5 已提交并推送 `67b50d0`。用户要求先调研业界方案、单独形成实施文档；本轮不实现运行时记忆。
+- P1-02 从 planned → ready → in_progress，M0设计按planned → ready → in_progress → in_review → done完成，M1 ready；[42调研与实施设计](42-p1-02-memory-research-design.md)覆盖一手资料、SQLite方案、T08/角色边界、删除并发语义、20项测试和M1–M5拆分；[独立设计评审](reviews/P1-02-memory-design-review.md)三项发现已修复并复审。
+- B5的一次INVALID_MODEL_OUTPUT保留为模型完成率问题；REL-01补安全的拒绝阶段诊断，REL-02的预算内格式纠正另行设计。不能用记忆功能替代协议修复或掩盖失败。
+- 站内工程文档加入入口，memory能力仍为planned；未安装第三方记忆框架、未迁移主库、未启动新的模型试验。
+
+### 2026-10-19：REL-01 / REL-02 优先修复
+
+- 用户明确要求先实现回复诊断与一次格式纠正；planned → ready → in_progress → in_review → done。规格和门禁见[43](43-rel-01-02-model-recovery.md)。
+- P1-02 M1保持ready，记忆尚未实现；本批没有替换冻结回归、放宽预算或重放未知操作。全量1623通过/67跳过、专项35通过、生产UI42通过、真实网关与Docker三项门禁通过，独立复审见[报告](reviews/REL-01-02-review.md)。
+
+### 2026-10-19：长期记忆业务与外部接入需求修订
+
+- 用户要求将业务定位、记忆职责、Hook接入形式及UI操作路径落成专项文档；[44](44-p1-02-memory-product-and-integration.md)为当前依据。
+- M0-B planned → ready → in_progress → in_review → done；独立文档评审通过，生产构建及7项站内阅读检查通过。本轮是文档与站内阅读交付，未安装引擎、修改数据库、开启采集或开发新运行能力。
+- 42中的仅同版本查询、排除Cognee及原M1 ready属于旧范围；MR-01先验证公开引擎版本、来源/删除/费用与模型兼容，再冻结M1-R数据契约。原存储批次不直接开工。
+- 权威账本与参考记忆分开；外部测试报告不自动成为内部验证事实；产品范围不扩大到任意仓库自动执行或多租户托管。
+
+### 2026-10-19：MR-01 选型验证启动
+
+- 用户授权进入MR-01，planned → ready → in_progress。检查公开发行包、依赖和许可证，隔离验证模型、来源、删除与预算契约；不改主库、不启用采集、不安装新模型。
+- 运行实验和不满足项均保留；未验收前不推进M1-R实现。
+
+- MR-01进入in_review：Cognee隔离SDK链路、既有DeepSeek与授权bge-m3、来源映射及墓碑拒用有实际证据；14项实验测试通过。依赖安全残余与生产未实现项详见45；不启用记忆运行功能。
+
+- MR-01按in_review → done完成（仅选型实验）：[独立评审](reviews/MR-01-cognee-review.md)关闭3项P1，保留MR01-SC-01供应链P2；14测试、全仓Ruff435文件、前端构建/类型与7项文档浏览器验收通过。生产记忆未开放，下一项M1-R先冻结数据契约及迁移方案。
+
+### 2026-10-19：M1-R权威领域与事件存储
+
+- 用户授权实施，planned → ready → in_progress；[46](46-m1-r-authority-event-store.md)冻结schema/迁移/限额与验收。领域层不开放HTTP或Hook，M2-R接引擎，M4-R接客户端与管理页面。
+
+- M1-R按in_progress → in_review → done完成；[独立评审](reviews/M1-R-authority-review.md)1项P1/1项P2修复复审关闭。全量1669通过/67跳过（最后只读helper前），最终专项46通过；Ruff445/mypy145、前端构建/类型与15项浏览器通过。0010→0011主库备份迁移，20旧表183行一致；9新表全空。前端边界说明、站内文档和launchd常驻更新完成。M2-R再接实际Cognee/模型与参考有效性，Hook客户端属M4-R。

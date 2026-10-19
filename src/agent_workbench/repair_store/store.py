@@ -17,6 +17,7 @@ from agent_workbench.analysis_store.store import AnalysisStore
 from agent_workbench.candidates.contracts import CandidatePatch, SnapshotRef
 from agent_workbench.mcp_config import canonical, digest
 from agent_workbench.model_gateway.gateway import PreparedCall, Reply
+from agent_workbench.model_gateway.rejections import rejection_code
 from agent_workbench.orchestration.budget import reserve_usage, settle
 from agent_workbench.orchestration.contracts import Contract, Usage
 from agent_workbench.orchestration.policy import PolicyError
@@ -720,6 +721,8 @@ class RepairStore:
                 status = "outcome_unknown"
             changes: dict[str, Any] = {}
             if reply is not None:
+                if reply.error:
+                    error_code = rejection_code(reply.error)
                 prepared = PreparedCall(
                     b"",
                     "0" * 64,
@@ -741,8 +744,7 @@ class RepairStore:
                         known_input_tokens=reply.input_tokens,
                         known_output_tokens=reply.output_tokens,
                     )
-                if reply.error and not error_code:
-                    error_code = "MODEL_RESPONSE_INVALID"
+                if reply.error and not unknown:
                     status = "failed"
             req = _new(req, status=status, error_code=error_code, **changes)
             candidate = candidates.get(req.candidate_id or "")

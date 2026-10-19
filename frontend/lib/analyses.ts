@@ -18,9 +18,15 @@ export const toolLabels = { read_evidence: "读取证据", read_contract: "读�
 export const assessmentLabels = { hypothesis: "待验证假设", inconclusive: "证据不足", proposal_only: "已提出建议", cannot_propose: "无法提出建议", needs_evidence: "需要运行验证", proposal_reviewed: "证据已核对" };
 export const reasonLabels = { evidence_missing: "缺少证据", contract_mismatch: "契约不一致", serialization_mismatch: "序列化不一致", unsupported: "当前范围不支持", proposal_requires_execution: "建议需要实际运行验证" };
 export const eventLabels = { created: "分析已创建", phase_changed: "进入下一阶段", model_started: "调用模型", model_settled: "模型已返回", model_unknown: "模型未返回用量", tool_started: "调用工具", tool_completed: "工具已返回", role_concluded: "提交结论", finished: "分析已结束", reconciled: "中断后已核对状态" };
-const errors = ["INVALID_INPUT", "PERMISSION_DENIED", "STALE_VERSION", "BUDGET_EXCEEDED", "RESOURCE_LIMIT", "TOOL_FAILURE", "RESULT_UNKNOWN", "ARTIFACT_MISMATCH", "INPUT_BOUND_UNVERIFIED", "MODEL_UNAVAILABLE", "MODEL_TIMEOUT", "MODEL_CANCELLED", "INVALID_MODEL_OUTPUT", "USAGE_UNKNOWN", "USAGE_INVALID", "OUTPUT_LIMIT", "CANCELLED", "PERSISTENCE_FAILED", "INTERRUPTED", "MODEL_CONFIGURATION_INVALID", "MODEL_NOT_CONFIGURED", "MODEL_TRANSPORT_ERROR", "MODEL_RESPONSE_INVALID", "MODEL_OUTPUT_TRUNCATED", "MODEL_USAGE_UNKNOWN", "MODEL_USAGE_BOUND_VIOLATION", "MODEL_DECISION_INVALID", "DEADLINE_EXCEEDED", "TOOL_FAILED", "TOOL_OUTCOME_UNKNOWN", "INTERNAL_ERROR"] as const;
+const errors = ["INVALID_INPUT", "PERMISSION_DENIED", "STALE_VERSION", "BUDGET_EXCEEDED", "RESOURCE_LIMIT", "TOOL_FAILURE", "RESULT_UNKNOWN", "ARTIFACT_MISMATCH", "INPUT_BOUND_UNVERIFIED", "MODEL_UNAVAILABLE", "MODEL_TIMEOUT", "MODEL_CANCELLED", "INVALID_MODEL_OUTPUT", "USAGE_UNKNOWN", "USAGE_INVALID", "OUTPUT_LIMIT", "CANCELLED", "PERSISTENCE_FAILED", "INTERRUPTED", "MODEL_CONFIGURATION_INVALID", "MODEL_NOT_CONFIGURED", "MODEL_TRANSPORT_ERROR", "MODEL_RESPONSE_INVALID", "MODEL_OUTPUT_TRUNCATED", "MODEL_USAGE_UNKNOWN", "MODEL_USAGE_BOUND_VIOLATION", "MODEL_DECISION_INVALID", "MODEL_DECISION_JSON_INVALID", "MODEL_ROLE_SCHEMA_INVALID", "MODEL_DECISION_LIMIT", "MODEL_EVIDENCE_INVALID", "MODEL_HANDOFF_INVALID", "MODEL_EVIDENCE_REQUIRED", "DEADLINE_EXCEEDED", "TOOL_FAILED", "TOOL_OUTCOME_UNKNOWN", "INTERNAL_ERROR"] as const;
 export type AnalysisErrorCode = typeof errors[number];
 export const errorLabels: Record<AnalysisErrorCode, string> = {
+  MODEL_DECISION_JSON_INVALID: "模型决策 JSON 格式错误",
+  MODEL_ROLE_SCHEMA_INVALID: "模型输出不符合当前角色格式",
+  MODEL_DECISION_LIMIT: "模型决策超出大小或嵌套限制",
+  MODEL_EVIDENCE_INVALID: "模型引用的证据无法核对",
+  MODEL_HANDOFF_INVALID: "当前执行状态不允许角色交接",
+  MODEL_EVIDENCE_REQUIRED: "模型缺少继续执行所需的证据",
   INVALID_INPUT: "输入无效", PERMISSION_DENIED: "没有权限", STALE_VERSION: "记录版本已过期", BUDGET_EXCEEDED: "超出预算", RESOURCE_LIMIT: "超出资源限制",
   TOOL_FAILURE: "工具执行失败", RESULT_UNKNOWN: "结果未知", ARTIFACT_MISMATCH: "产物校验不一致", INPUT_BOUND_UNVERIFIED: "模型输入上限未确认", MODEL_UNAVAILABLE: "模型不可用",
   MODEL_TIMEOUT: "模型响应超时", MODEL_CANCELLED: "模型调用已停止", INVALID_MODEL_OUTPUT: "模型输出无效", USAGE_UNKNOWN: "用量未知", USAGE_INVALID: "用量数据无效",

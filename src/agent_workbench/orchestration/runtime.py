@@ -228,7 +228,10 @@ class AnalysisRuntime:
                 )
             )
             raise Stop("outcome_unknown", cast(ErrorCode, reply.error or "MODEL_USAGE_UNKNOWN"))
-        if reply.error and reply.error != "MODEL_DECISION_INVALID":
+        if reply.error and reply.error not in (
+            "MODEL_DECISION_INVALID",
+            "MODEL_DECISION_JSON_INVALID",
+        ):
             raise Stop("inconclusive", cast(ErrorCode, reply.error))
         try:
             decision = self.agents[role].decode(reply.decision or b"")

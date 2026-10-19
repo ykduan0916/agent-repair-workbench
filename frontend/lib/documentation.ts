@@ -31,6 +31,11 @@ export const documentationGroups: readonly DocumentationGroup[] = [
     title: "工程记录",
     description: "开发过程中的计划、规格、交付和评审记录，内容停留在写作当时；当前功能以更新记录为准。",
     entries: [
+      { title: "经验与事件存储", slug: "46-m1-r-authority-event-store", summary: "项目归属、确认与修订、事件去重、后台任务恢复和使用边界。" },
+      { title: "记忆引擎选型与契约验证", slug: "45-mr-01-cognee-contract-validation", summary: "Cognee、现有模型、来源和删除的实测结果，以及生产接入门禁。" },
+      { title: "长期记忆业务与接入设计", slug: "44-p1-02-memory-product-and-integration", summary: "业务定位、外部Hook、记忆职责、页面操作和验收门禁；尚未实现。" },
+      { title: "模型回复诊断与格式纠正", slug: "43-rel-01-02-model-recovery", summary: "拒绝阶段、一次纠正的边界、预算保护和测试证据。" },
+      { title: "项目经验记忆早期设计", slug: "42-p1-02-memory-research-design", summary: "早期调研及历史规格，当前方案见长期记忆业务与接入设计。" },
       { title: "网页修复闭环验收", slug: "41-p1-01-b5-delivery", summary: "真实模型、容器、网页审批与下载的集成门禁，以及测试边界。" },
       { title: "人工决定与精确补丁下载", slug: "40-p1-01-b4-approval-download", summary: "决定账本、版本核对、幂等、并发和补丁下载边界。" },
       { title: "网页修复操作与常驻服务", slug: "39-p1-01-b3-web-controls", summary: "页面开始/停止、刷新恢复、迁移与本机服务的实现和验收。" },

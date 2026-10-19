@@ -1,0 +1,67 @@
+{
+  "scope": "synthetic laboratory validation; not repair efficacy or production acceptance",
+  "attempts": [
+    {
+      "attempt": "535fe970d0a648e6a029db9184102955",
+      "verdict": "invalid_provenance_gate",
+      "worker_phase": "completed",
+      "llm_calls": 2,
+      "embedding_calls": 5,
+      "unknown_calls": 0,
+      "reported_total_tokens": 5921,
+      "cost_usd": null,
+      "mapped_before": null,
+      "mapped_after": null,
+      "dataset_removed": true,
+      "usage_complete": true
+    },
+    {
+      "attempt": "a04745096b394845b4536b3e80a50385",
+      "verdict": "invalid_provenance_gate",
+      "worker_phase": "completed",
+      "llm_calls": 2,
+      "embedding_calls": 5,
+      "unknown_calls": 0,
+      "reported_total_tokens": 5061,
+      "cost_usd": null,
+      "mapped_before": 0,
+      "mapped_after": 0,
+      "dataset_removed": true,
+      "usage_complete": true
+    },
+    {
+      "attempt": "41fe701ed85a4575bf2fad47128dc0bc",
+      "verdict": "failed_unknown_provider_results",
+      "worker_phase": "added",
+      "llm_calls": 6,
+      "embedding_calls": 0,
+      "unknown_calls": 6,
+      "reported_total_tokens": 0,
+      "cost_usd": null,
+      "mapped_before": null,
+      "mapped_after": null,
+      "dataset_removed": null,
+      "usage_complete": false
+    },
+    {
+      "attempt": "6056889825e443ad9874442999214867",
+      "verdict": "passed_bounded_synthetic_contract",
+      "worker_phase": "completed",
+      "llm_calls": 2,
+      "embedding_calls": 9,
+      "unknown_calls": 0,
+      "reported_total_tokens": 5774,
+      "cost_usd": null,
+      "mapped_before": 1,
+      "mapped_after": 0,
+      "dataset_removed": true,
+      "usage_complete": true
+    }
+  ],
+  "known_advisory": {
+    "package": "diskcache",
+    "version": "5.6.3",
+    "id": "PYSEC-2026-2447",
+    "status": "residual; explicit sqlite cache, private fresh directories; not fixed"
+  }
+}

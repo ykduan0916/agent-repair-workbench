@@ -1,9 +1,11 @@
 "use client";
+import Link from "next/link";
+import { StatusBadge } from "./ui/status";
 import { PageHeader } from "./ui/page-header";
 import CapabilityBadge from "./capability-badge";
 import AgentContracts from "./agent-contracts";
 import { modules } from "../lib/modules";
-import { EnvSection } from "./environment/section";
+import { EnvSection, SettingRow } from "./environment/section";
 import { StatusSection } from "./environment/status-section";
 import { ModelSection } from "./environment/model-section";
 import { DataSection } from "./environment/data-section";
@@ -13,6 +15,7 @@ const toc = [
   { id: "status", label: "本机环境" },
   { id: "model", label: "模型" },
   { id: "data", label: "本机数据" },
+  { id: "memory", label: "经验与事件" },
   { id: "contracts", label: "角色与工具接口" },
   { id: "cli", label: "命令行" },
 ];
@@ -28,6 +31,18 @@ export default function ConnectionsConsole() {
     <StatusSection />
     <ModelSection />
     <DataSection />
+    <EnvSection id="memory" title="经验与事件" description="让后续排查能参考经确认的经验；当前不会自动采集外部会话。">
+      <div className="pane env-pane">
+        <SettingRow label="项目经验" aside={<CapabilityBadge section="memory" />}>
+          <p className="muted">确认、修订与撤回规则已确定，经验管理和自动检索入口尚未开放。</p>
+          <Link className="link small" href="/docs/46-m1-r-authority-event-store">查看存储与使用边界</Link>
+        </SettingRow>
+        <SettingRow label="外部事件" aside={<StatusBadge tone="neutral">待开发</StatusBadge>}>
+          <p className="muted">计划接收授权的测试结果、工具契约变化与用户纠正。Codex 等客户端插件尚未接通。</p>
+          <Link className="link small" href="/docs/44-p1-02-memory-product-and-integration">查看接入方案</Link>
+        </SettingRow>
+      </div>
+    </EnvSection>
     <EnvSection id="contracts" title="角色与工具接口" description="每个角色负责什么、能调用哪些工具，以及它们的数据契约。只读，不会运行工具或调用模型。">
       <AgentContracts />
     </EnvSection>

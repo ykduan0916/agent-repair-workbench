@@ -16,6 +16,20 @@ export const changelog: readonly ChangelogDay[] = [
   {
     date: "2026-10-19",
     entries: [{
+      slug: "memory-integration-guide", title: "明确项目经验与外部事件的接入边界",
+      changes: [
+        "环境与接入页新增经验与事件说明，可直接查看确认、修订、撤回及外部事件接入文档。",
+        "区分经验管理与客户端采集，明确当前尚未开放的操作。",
+      ],
+      limit: "尚未接通经验检索和 Codex 插件，不会自动读取外部会话。",
+    }, {
+      slug: "repair-output-recovery", title: "定位模型回复问题并尝试一次格式纠正",
+      changes: [
+        "修复结果和运行过程区分格式错误、证据不足与交接条件未满足，保留具体停止原因。",
+        "已结算的格式错误可在原任务预算内纠正一次；已完成的工具操作保留，不重新执行。",
+      ],
+      limit: "超时、结果未知、证据不足和回归失败不会触发格式纠正。",
+    }, {
       slug: "repair-workflow-guide", title: "串起修复、核验与补丁下载",
       changes: [
         "修复页补充从运行案例到人工决定、下载补丁的操作路径，并直接链接站内操作指南。",

@@ -19,6 +19,7 @@ from agent_workbench.model_gateway.gateway import (
     digest,
     prepare_decision_call,
 )
+from agent_workbench.model_gateway.rejections import FORMAT_CORRECTIONS, PROTOCOL_REVISION
 from agent_workbench.repair_contracts.common import RepairRole
 
 OUTPUT_LIMIT = 8192
@@ -72,7 +73,8 @@ class RepairDeepSeekAdapter:
             canonical(
                 {
                     "transport_config": config.sha256,
-                    "repair_protocol": 1,
+                    "repair_protocol": PROTOCOL_REVISION,
+                    "format_corrections": FORMAT_CORRECTIONS,
                     "role_output_limit": OUTPUT_LIMIT,
                     "schemas": self._schemas,
                     "prompts": {

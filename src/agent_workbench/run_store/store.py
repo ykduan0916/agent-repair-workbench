@@ -46,7 +46,7 @@ from .schema import (
     web_requests,
 )
 
-REVISION = "0010_decision_events"
+REVISION = "0011_memory_authority"
 MAX_REPORT = 1_048_576
 TERMINAL = ("succeeded", "failed", "cancelled", "outcome_unknown")
 EXECUTORS = ("absent", "running", "stopped", "unavailable", "mismatch")
@@ -170,6 +170,7 @@ class RunStore:
                 [("0007_web_analyses",)],
                 [("0008_web_repairs",)],
                 [("0009_candidate_decisions",)],
+                [("0010_decision_events",)],
             )
         )
         if not supported or not {"runs", "attempts", "events", "artifacts"} <= names:
@@ -184,6 +185,7 @@ class RunStore:
                 [("0006_reproductions",)],
                 [("0007_web_analyses",)],
                 [("0009_candidate_decisions",)],
+                [("0010_decision_events",)],
                 [(REVISION,)],
             )
             and "web_requests" not in names
@@ -199,6 +201,7 @@ class RunStore:
                 [("0006_reproductions",)],
                 [("0007_web_analyses",)],
                 [("0009_candidate_decisions",)],
+                [("0010_decision_events",)],
                 [(REVISION,)],
             )
             and not {"analysis_summaries", "analysis_events", "analysis_execution_links"} <= names
@@ -210,7 +213,7 @@ class RunStore:
         ):
             raise StoreError("schema_incompatible")
         if (
-            revisions == [(REVISION,)]
+            revisions in ([("0010_decision_events",)], [(REVISION,)])
             and not {"repair_candidate_decisions", "repair_candidate_decision_events"} <= names
         ):
             raise StoreError("schema_incompatible")
@@ -223,6 +226,7 @@ class RunStore:
                 [("0006_reproductions",)],
                 [("0007_web_analyses",)],
                 [("0009_candidate_decisions",)],
+                [("0010_decision_events",)],
                 [(REVISION,)],
             )
             and not {"repair_tasks", "repair_requests", "repair_candidates", "repair_events"}
@@ -237,6 +241,7 @@ class RunStore:
                 [("0006_reproductions",)],
                 [("0007_web_analyses",)],
                 [("0009_candidate_decisions",)],
+                [("0010_decision_events",)],
                 [(REVISION,)],
             )
             and not {"repair_comparisons", "repair_comparison_attempts"} <= names
@@ -247,6 +252,7 @@ class RunStore:
             [("0006_reproductions",)],
             [("0007_web_analyses",)],
             [("0009_candidate_decisions",)],
+            [("0010_decision_events",)],
             [(REVISION,)],
         ):
             if not {"repair_reproductions", "repair_execution_identities"} <= names:
@@ -265,6 +271,7 @@ class RunStore:
         if revisions in (
             [("0007_web_analyses",)],
             [("0009_candidate_decisions",)],
+            [("0010_decision_events",)],
             [(REVISION,)],
         ):
             if "web_analysis_requests" not in names:
@@ -278,6 +285,12 @@ class RunStore:
                 raise StoreError("schema_incompatible")
 
         if revisions == [(REVISION,)]:
+            from .migrations.versions.v0011_memory_authority import TABLES
+
+            if not set(TABLES) <= names:
+                raise StoreError("schema_incompatible")
+
+        if revisions in ([("0010_decision_events",)], [(REVISION,)]):
             if "web_repair_requests" not in names:
                 raise StoreError("schema_incompatible")
             from .migrations.versions.v0008 import INDEX_SQL as REPAIR_INDEX_SQL
@@ -333,6 +346,13 @@ class RunStore:
 
     def downgrade_empty(self) -> None:
         with self._transaction(write=True) as connection:
+            from .migrations.versions.v0011_memory_authority import TABLES
+
+            if any(
+                connection.exec_driver_sql(f"SELECT 1 FROM {name} LIMIT 1").first()
+                for name in TABLES
+            ):
+                raise StoreError("migration_not_empty")
             for table in (
                 runs,
                 attempts,
