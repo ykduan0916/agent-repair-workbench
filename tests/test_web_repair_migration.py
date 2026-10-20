@@ -14,10 +14,13 @@ from tests.test_web_repair_store import admit, host
 __all__ = ["host"]
 
 
-def snapshot(base, tables):
+def snapshot(base, tables, columns=None):
     with sqlite3.connect(base.path) as conn:
         return {
-            name: conn.execute(f'SELECT rowid,* FROM "{name}" ORDER BY rowid').fetchall()
+            name: conn.execute(
+                f"SELECT rowid,{','.join(columns[name]) if columns else '*'} "
+                f'FROM "{name}" ORDER BY rowid'
+            ).fetchall()
             for name in tables
         }
 
@@ -80,13 +83,23 @@ def test_all_old_tables_bytes_order_and_count_preserved(tmp_path):
     base = old_database(tmp_path)
     try:
         tables = seed_sentinels(base)
-        before = snapshot(base, tables)
+        with sqlite3.connect(base.path) as conn:
+            columns = {
+                name: [f'"{r[1]}"' for r in conn.execute(f'PRAGMA table_info("{name}")')]
+                for name in tables
+            }
+        before = snapshot(base, tables, columns)
         assert all(before.values())
         base.initialize()
-        assert snapshot(base, tables) == before
+        assert snapshot(base, tables, columns) == before
+        with sqlite3.connect(base.path) as conn:
+            assert conn.execute("SELECT memory_binding FROM web_analysis_requests").fetchall() == [
+                (None,),
+                (None,),
+            ]
         with base._transaction(write=True) as conn:
             command.downgrade(base._migration(conn), "0007_web_analyses")
-        assert snapshot(base, tables) == before
+        assert snapshot(base, tables, columns) == before
         with pytest.raises(StoreError, match="schema_incompatible"):
             with base._transaction():
                 pass

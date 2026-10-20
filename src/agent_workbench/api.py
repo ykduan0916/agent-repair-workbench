@@ -4,7 +4,7 @@ import asyncio
 import os
 import re
 from collections.abc import AsyncIterator, Awaitable, Callable
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import cast
 
 from fastapi import FastAPI, Request, Response
@@ -46,13 +46,21 @@ def create_app() -> FastAPI:
         app.state.reproductions = ReproductionService(state_directory())
         app.state.analysis_runs = AnalysisService(state_directory())
         app.state.repair_runs = RepairService(state_directory())
+        from agent_workbench.web_memory.engine import EngineService
+
+        app.state.memory_engine = EngineService(state_directory())
         try:
-            yield
+            async with AsyncExitStack() as stack:
+                from agent_workbench.web_memory.lifecycle import memory_lifespan
+
+                await stack.enter_async_context(memory_lifespan(app))
+                yield
         finally:
             await asyncio.gather(
                 app.state.reproductions.close(),
                 app.state.analysis_runs.close(),
                 app.state.repair_runs.close(),
+                app.state.memory_engine.close(),
             )
             if app.state.workers:
                 await asyncio.gather(*app.state.workers, return_exceptions=True)
@@ -153,6 +161,15 @@ def create_app() -> FastAPI:
     app.include_router(contracts_router)
     app.include_router(runs_router)
     app.include_router(analyses_router)
+    from agent_workbench.web_memory.agent_api import router as memory_agent_router
+    from agent_workbench.web_memory.api import router as memory_router
+    from agent_workbench.web_memory.engine_api import router as memory_engine_router
+    from agent_workbench.web_memory.repair_draft_api import router as repair_draft_router
+
+    app.include_router(repair_draft_router)
+    app.include_router(memory_agent_router)
+    app.include_router(memory_router)
+    app.include_router(memory_engine_router)
     return app
 
 

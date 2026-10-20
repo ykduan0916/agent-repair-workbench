@@ -220,7 +220,8 @@ def test_active_unique_index_and_index_removal_fail_closed(host):
         sql(
             store,
             "INSERT INTO web_analysis_requests SELECT ?, payload_sha256, case_name, intent, "
-            "policy_sha256, initial_sha256, claim_sha256, consumed, active, cancel_requested "
+            "policy_sha256, initial_sha256, claim_sha256, consumed, active, "
+            "cancel_requested, memory_binding "
             "FROM web_analysis_requests",
             (str(uuid4()),),
         )
@@ -357,6 +358,12 @@ def test_0006_upgrade_preserves_rows_and_rejects_nonempty_downgrade(tmp_path):
                     "memory_operations",
                     "memory_engine_roots",
                     "memory_engine_config",
+                    "memory_credentials",
+                    "memory_event_processing",
+                    "memory_web_operations",
+                    "memory_task_bindings",
+                    "memory_model_uses",
+                    "memory_repair_drafts",
                 )
             ]
             return {

@@ -7,6 +7,7 @@ const sections = [
   { path: "/workspace/tasks", nav: "复现", title: "复现", badge: "网页可用" },
   { path: "/workspace/diagnosis", nav: "分析", title: "分析", badge: "网页可用" },
   { path: "/workspace/repairs", nav: "修复", title: "修复", badge: "网页可用" },
+  { path: "/workspace/memory", nav: "项目经验", title: "项目经验", badge: "网页可用" },
   { path: "/workspace/connections", nav: "环境与接入", title: "环境与接入", badge: "网页可用" },
 ] as const;
 
@@ -17,7 +18,7 @@ test("工作区共用外壳：导航、页头状态、页面标题，不展示�
   for (const section of sections) {
     await page.goto(section.path);
     const nav = page.getByRole("navigation", { name: "产品模块" });
-    for (const item of ["总览", "调用检查", "复现", "分析", "修复"]) await expect(nav.getByRole("link", { name: item, exact: true })).toBeVisible();
+    for (const item of ["总览", "调用检查", "复现", "分析", "修复", "项目经验"]) await expect(nav.getByRole("link", { name: item, exact: true })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "设置" }).getByRole("link", { name: "环境与接入" })).toBeVisible();
     await expect(page.getByRole("complementary", { name: "工作区" })).not.toContainText(/项目记忆|回归验证|预览/);
     const current = page.getByRole("complementary", { name: "工作区" }).locator('[aria-current="page"]');
@@ -36,9 +37,6 @@ test("工作区共用外壳：导航、页头状态、页面标题，不展示�
 test("旧地址重定向到合并后的页面", async ({ page }) => {
   await page.goto("/workspace/regression");
   await expect(page).toHaveURL(/\/workspace\/repairs\?tab=regression$/);
-  await page.goto("/workspace/memory");
-  await expect(page).toHaveURL(/\/workspace$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("总览");
 });
 
 test("侧栏环境状态可展开，列出本机服务、复现环境与模型", async ({ page }) => {

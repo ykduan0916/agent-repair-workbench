@@ -11,7 +11,7 @@ import stat
 import subprocess
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from itertools import chain
 from pathlib import Path
@@ -230,7 +230,14 @@ class CogneeRuntime:
             input_path.unlink(missing_ok=True)
             output_path.unlink(missing_ok=True)
 
-    def index(self, project: str, memory_id: str, *, cancel: threading.Event | None = None) -> str:
+    def index(
+        self,
+        project: str,
+        memory_id: str,
+        *,
+        cancel: threading.Event | None = None,
+        on_job: Callable[[str], None] | None = None,
+    ) -> str:
         if self.providers is None:
             raise StoreError("provider_configuration_required")
         cancel = cancel or threading.Event()
@@ -242,6 +249,8 @@ class CogneeRuntime:
             if lease is None:
                 raise StoreError("job_unavailable")
             try:
+                if on_job is not None:
+                    on_job(job_id)
                 self.store.snapshot(project, lease)
                 content = self.store.memory(project, memory_id).content
                 if content is None or cancel.is_set():
@@ -274,7 +283,13 @@ class CogneeRuntime:
             return job_id
 
     def search(
-        self, project: str, query: Query, *, cancel: threading.Event | None = None
+        self,
+        project: str,
+        query: Query,
+        *,
+        cancel: threading.Event | None = None,
+        on_job: Callable[[str], None] | None = None,
+        deadline: float | None = None,
     ) -> Retrieval:
         if self.providers is None:
             raise StoreError("provider_configuration_required")
@@ -286,13 +301,20 @@ class CogneeRuntime:
                 job_id = self.store.prepare_search(
                     project, query, profile_digest=self.providers.embedding_fingerprint
                 )
+                if on_job is not None:
+                    on_job(job_id)
                 lease = self.store.claim_job(project, job_id=job_id)
                 if lease is None:
                     raise StoreError("job_unavailable")
                 snapshot = self.store.snapshot(project, lease)
                 if snapshot["query_digest"] != sha(query.text):
                     raise StoreError("query_changed")
-                deadline, evidence = time.monotonic() + 180, []
+                deadline = (
+                    min(deadline, time.monotonic() + 180)
+                    if deadline is not None
+                    else time.monotonic() + 180
+                )
+                evidence = []
                 for ref in snapshot["refs"]:
                     if cancel.is_set() or time.monotonic() >= deadline:
                         raise StoreError("engine_stopped")

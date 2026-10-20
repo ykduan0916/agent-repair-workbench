@@ -326,10 +326,16 @@ class AnalysisStore:
         expected_revision: int,
         expected_sha256: str,
         fence: AnalysisFence,
+        memory_admission: Callable[[Connection], None] | None = None,
     ) -> SaveResult:
         fence.require(self.directory, summary.task_id)
         with self._transaction(write=True) as connection:
-            return self._save(connection, summary, event, expected_revision, expected_sha256)
+            result = self._save(connection, summary, event, expected_revision, expected_sha256)
+            if memory_admission is not None and not result.reused:
+                if event.kind != "model_started":
+                    raise StoreError("memory_admission_invalid")
+                memory_admission(connection)
+            return result
 
     def get(self, task_id: str) -> SaveResult:
         _uuid(task_id)

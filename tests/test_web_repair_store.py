@@ -409,7 +409,7 @@ def test_sql_unique_slot_exists_independently_of_owner(host):
         row = list(conn.execute("SELECT * FROM web_repair_requests").fetchone())
         row[0] = uid()
         with pytest.raises(sqlite3.IntegrityError):
-            conn.execute("INSERT INTO web_repair_requests VALUES (?,?,?,?,?,?,?,?,?,?)", row)
+            conn.execute("INSERT INTO web_repair_requests VALUES (?,?,?,?,?,?,?,?,?,?,?)", row)
     assert counts(store) == [1, 1, 1]
 
 
@@ -438,3 +438,32 @@ def test_two_waiting_admissions_same_owner_only_first_gets_claim(host):
     with ThreadPoolExecutor(max_workers=2) as executor:
         assert sorted(executor.map(lambda _: worker(), range(2))) == [False, True]
     assert counts(host[0]) == [1, 1, 1]
+
+
+def test_memory_bound_terminal_receipt_can_release_slot(host):
+    from agent_workbench.experience_memory.agent_models import MemoryBinding, agent_budget
+
+    store, request, task, owner, fence, _ = host
+    binding = MemoryBinding(project_id="project", connection_id="source")
+    request = request.model_copy(update={"memory": binding})
+    task = task.model_copy(update={"budget": agent_budget(binding, WEB_BUDGET)})
+    admission = store.admit(request, task, policy_sha256=POLICY, owner=owner, task_fence=fence)
+    started = store.consume(
+        admission.claim,
+        admission.saved,
+        case_id=request.case_id,
+        mode=request.mode,
+        policy_sha256=POLICY,
+        task_fence=fence,
+    )
+    store.finish_task(
+        request.request_id,
+        "inconclusive",
+        expected_revision=started.saved.task.revision,
+        expected_sha256=started.saved.task_sha256,
+        fence=fence,
+    )
+    stamp, settled, evidence = store.release_state(request.request_id)
+    assert settled and evidence == {} and len(stamp) == 64
+    store._release_cas(request.request_id, stamp, owner=owner, fence=fence)
+    assert not store.receipt(request.request_id).active

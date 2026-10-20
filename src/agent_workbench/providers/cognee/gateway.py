@@ -71,9 +71,13 @@ class Gateway:
     async def request(
         self, endpoint: str, api_key: str, payload: dict[str, Any]
     ) -> tuple[int, bytes]:
-        async with asyncio.timeout(min(30, max(0.01, self.deadline - time.monotonic()))):
+        # Index extraction may require a longer completion than embedding. Both
+        # remain bounded by the original job/parent deadline, without retries.
+        cap = 60 if endpoint == self.providers.model_endpoint else 30
+        timeout = min(cap, max(0.01, self.deadline - time.monotonic()))
+        async with asyncio.timeout(timeout):
             async with httpx.AsyncClient(
-                timeout=30, trust_env=False, follow_redirects=False
+                timeout=timeout, trust_env=False, follow_redirects=False
             ) as client:
                 async with client.stream(
                     "POST", endpoint, headers={"Authorization": "Bearer " + api_key}, json=payload

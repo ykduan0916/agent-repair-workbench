@@ -7,6 +7,7 @@ from typing import TypeVar
 
 from agent_workbench.analysis_store.fencing import AnalysisFence
 from agent_workbench.controlled_tools.resources import load_case
+from agent_workbench.experience_memory.agent_models import agent_budget
 from agent_workbench.mcp_config import canonical, digest
 from agent_workbench.model_gateway.gateway import Adapter, Config, DeepSeekAdapter
 from agent_workbench.orchestration.runtime import AnalysisRuntime
@@ -15,6 +16,7 @@ from agent_workbench.web_analyses.catalog import CASES, INTENTS, model_config
 from agent_workbench.web_analyses.fencing import AnalysisWebFence
 from agent_workbench.web_analyses.models import WEB_BUDGET, AnalysisAdmission, AnalysisRequest
 from agent_workbench.web_analyses.store import WebAnalysisStore
+from agent_workbench.web_memory.agent_service import make_session
 from agent_workbench.web_runs.service import Admission
 
 T = TypeVar("T")
@@ -159,13 +161,19 @@ class AnalysisService:
                 request.case_name,
                 task_id=request.request_id,
                 intent=request.intent,
-                budget=WEB_BUDGET,
+                budget=agent_budget(request.memory, WEB_BUDGET),
             )
             if self.stopping:
                 raise StoreError("service_stopping")
             fence.acquire()
             store = WebAnalysisStore(self.directory)
-            runtime = AnalysisRuntime(registry, store, adapter, image_root=self.image_root)
+            runtime = AnalysisRuntime(
+                registry,
+                store,
+                adapter,
+                image_root=self.image_root,
+                memory=make_session(self.directory, request.memory, registry, "analysis"),
+            )
             admission = store.admit(
                 request,
                 runtime.initial_summary(),

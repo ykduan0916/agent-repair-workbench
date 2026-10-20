@@ -14,8 +14,27 @@ export type ChangelogDay = { date: string; entries: readonly ChangelogEntry[] };
 
 export const changelog: readonly ChangelogDay[] = [
   {
-    date: "2026-10-19",
+    date: "2026-10-20",
     entries: [{
+      slug: "agent-memory-reference", title: "让排查使用经授权的项目经验",
+      changes: [
+        "诊断与多角色修复可选择参考项目经验，逐次核对来源、版本和授权；验证仍依据当前测试。",
+        "运行记录区分检索命中与实际获准发送的引用，分别展示检索和 Agent 的已知用量。",
+        "接受通过回归的候选后，可明确保存经验草稿，再到经验页审核补充；不自动确认或建立索引。",
+      ],
+      limit: "仍仅支持内置受控案例，历史经验不能代替当前回归结果。",
+    }],
+  },
+  {
+    date: "2026-10-19",
+    entries: [{slug: "memory-management-events", title: "在网页管理项目经验和事件来源",
+      changes: [
+        "新增项目经验页，支持草稿编辑、确认、适用策略、撤回与删除，并可明确授权索引和查询用途。",
+        "环境与接入支持创建事件来源、生成或撤销凭据、暂停采集；已接收与已处理分别展示。",
+        "索引和清理可从网页执行，刷新后继续查看结果；列表支持分页，来源资料和技术细节按需展开。",
+      ],
+      limit: "Codex 自动采集需要在客户端审核并信任 Hook；外部事件只生成待确认草稿。",
+    }, {
       slug: "authorized-memory-retrieval", title: "在命令行检索经确认的项目经验",
       changes: [
         "经验检索返回来源和适用版本，明确区分同版本参考与跨版本历史线索。",

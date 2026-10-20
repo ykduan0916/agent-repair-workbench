@@ -523,7 +523,7 @@ def test_review_0011_upgrade_preserves_populated_authority(tmp_path):
         after = {table: c.exec_driver_sql(f"SELECT * FROM {table}").all() for table in TABLES}
         assert (
             c.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
-            == "0012_memory_engine"
+            == "0014_agent_memory"
         )
     assert before == after
     store.close()

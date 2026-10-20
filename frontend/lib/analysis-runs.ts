@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { memoryBindingSchema } from "./memory";
 import { readJSON, RunApiError } from "./runs";
 import { summarySchema } from "./analyses";
 const uuid = z.string().regex(/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/);
 const cases = z.enum(["output_mismatch", "passing"]);
 const intents = z.enum(["check_only", "diagnose", "propose_repair"]);
-export const pendingAnalysisSchema = z.strictObject({ request_id: uuid, case_name: cases, intent: intents });
+export const pendingAnalysisSchema = z.strictObject({ request_id: uuid, case_name: cases, intent: intents, memory: memoryBindingSchema.optional() });
 export type PendingAnalysis = z.infer<typeof pendingAnalysisSchema>;
 export const ANALYSIS_PENDING_KEY = "awb-pending-analysis-v1";
 const catalogSchema = z.strictObject({

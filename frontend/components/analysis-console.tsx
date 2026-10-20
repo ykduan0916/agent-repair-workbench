@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { TaskMemoryChoice } from "./memory/task-memory-choice";
+import { TaskMemoryUsage } from "./memory/task-memory-usage";
+import { type MemoryBinding } from "../lib/memory";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Play, Square } from "lucide-react";
 import { AnalysisDetail, analysisStatus, describeEvent, intentLabels, roleLabels } from "../lib/analyses";
@@ -31,6 +34,7 @@ export function CommandLine({ value, label }: { value: string; label: string }) 
 }
 
 export default function AnalysisConsole({ detail, onSelect, onRefresh, refreshKey, cliOpen, onCliOpenChange, pendingMissing = false, onPendingChange }: Props) {
+  const [memory, setMemory] = useState<MemoryBinding>();
   const env = useEnvironmentStatus();
   const confirm = useConfirm();
   const toast = useToast();
@@ -66,8 +70,9 @@ export default function AnalysisConsole({ detail, onSelect, onRefresh, refreshKe
     try {
       const raw = sessionStorage.getItem(ANALYSIS_PENDING_KEY);
       if (raw) {
-        if (raw.length > 512) throw new Error("invalid");
+        if (raw.length > 1024) throw new Error("invalid");
         const value = pendingAnalysisSchema.parse(JSON.parse(raw));
+        setMemory(value.memory);
         setPending(value); setCase(value.case_name); setIntent(value.intent); setUncertain(true); watch(value.request_id);
         select.current(value.request_id);
         setNotice({ tone: "unknown", text: "无法确认上次提交是否已开始，正在读取这次提交的记录（只读取，不会重新运行）。" });
@@ -139,7 +144,7 @@ export default function AnalysisConsole({ detail, onSelect, onRefresh, refreshKe
 
   async function submit(existing?: PendingAnalysis) {
     if (writing.current || !storageReady || (!existing && (pending || !catalog || catalogError || catalog.slot.status !== "available"))) return;
-    const request = existing ?? { request_id: crypto.randomUUID(), case_name: caseName, intent };
+    const request = existing ?? { request_id: crypto.randomUUID(), case_name: caseName, intent, ...(memory && intent !== "check_only" ? { memory } : {}) };
     try { sessionStorage.setItem(ANALYSIS_PENDING_KEY, JSON.stringify(request)); }
     catch { setStorageReady(false); setNotice({ tone: "fail", text: "分析未开始：浏览器无法保存请求 ID。请允许本站使用存储后重试。" }); return; }
     writing.current = true; setSubmitting(true); setPending(request); setNotice(null); watch(request.request_id); setCollapsed(null);
@@ -210,6 +215,7 @@ export default function AnalysisConsole({ detail, onSelect, onRefresh, refreshKe
   const disabled = !storageReady || !catalog || !!catalogError || submitting || !!pending || catalog.slot.status !== "available" || (intentNeedsModel && !catalog.model.configured);
 
   return <>
+    {detail && <TaskMemoryUsage kind="analysis" taskId={detail.summary.task_id} revision={detail.summary.summary_revision} agentTokens={detail.summary.usage.known_input_tokens + detail.summary.usage.known_output_tokens} agentComplete={detail.summary.usage.usage_complete} />}
     <section className="pane an-launch" aria-labelledby="analysis-launch-heading" id="analysis-launch">
       <h2 id="analysis-launch-heading" className="sr-only">新建分析</h2>
       <div className="an-launch-row">
@@ -218,7 +224,7 @@ export default function AnalysisConsole({ detail, onSelect, onRefresh, refreshKe
             {cases.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select></div>
         <div className="field an-launch-field"><label htmlFor="analysis-intent">目标</label>
-          <select id="analysis-intent" className="select" value={intent} disabled={submitting || !!pending} onChange={e => setIntent(e.target.value as PendingAnalysis["intent"])}>
+          <select id="analysis-intent" className="select" value={intent} disabled={submitting || !!pending} onChange={e => { setIntent(e.target.value as PendingAnalysis["intent"]); if (e.target.value === "check_only") setMemory(undefined); }}>
             {intents.map(item => <option key={item.id} value={item.id} disabled={item.requires_model && !modelReady}>{item.label}{item.requires_model && !modelReady ? "（需配置模型）" : ""}</option>)}
           </select></div>
         <button type="button" className="btn btn-primary an-launch-start" disabled={disabled} aria-describedby="analysis-launch-reason" aria-busy={submitting || undefined} onClick={() => void submit()}>
@@ -226,6 +232,7 @@ export default function AnalysisConsole({ detail, onSelect, onRefresh, refreshKe
         <button type="button" id="analysis-cli-toggle" className="btn btn-ghost btn-sm an-cli-toggle" aria-expanded={cliOpen} aria-controls="analysis-cli" onClick={() => onCliOpenChange(!cliOpen)}>
           在终端运行<ChevronDown size={13} aria-hidden="true" /></button>
       </div>
+      <TaskMemoryChoice value={memory} onChange={setMemory} disabled={submitting || !!pending} supported={intent !== "check_only"} />
       <div id="analysis-launch-reason">{blocked ?? <p className="an-launch-reason">{intentHints[intent]}</p>}</div>
       {notice && !(uncertain && pendingMissing) && <p className="an-launch-notice" data-tone={notice.tone} role="status">{notice.text}</p>}
       {uncertain && pending && <Callout tone="unknown" title={pendingMissing ? "服务端没有这次提交的记录" : "提交结果待确认"} actions={<>

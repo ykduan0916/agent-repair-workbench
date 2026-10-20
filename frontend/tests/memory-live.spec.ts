@@ -1,0 +1,41 @@
+import { test, expect } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+
+/** Real Next/API/SQLite; explicit opt-in to prevent writing resident state. No provider calls. */
+test.use({ trace: "off", screenshot: "off" });
+test.skip(process.env.AWB_MEMORY_LIVE !== "1", "isolated memory API gate only");
+test("真实网页完成项目、来源、事件、草稿与授权生命周期", async ({ page }) => {
+  const project = `ui_${randomUUID()}`, source = `src_${randomUUID()}`;
+  await page.goto("/workspace/connections#memory");
+  const region = page.getByRole("region", { name: "经验与事件", exact: true });
+  await region.getByRole("button", { name: "新建项目" }).click(); await region.getByLabel("项目标识", { exact: true }).fill(project); await region.getByRole("button", { name: "创建", exact: true }).click();
+  await expect(region.getByRole("combobox", { name: "项目", exact: true })).toHaveValue(project);
+  await region.getByRole("button", { name: "添加事件来源" }).click(); await region.getByLabel("来源标识").fill(source); await region.getByRole("button", { name: "创建来源" }).click();
+  const connection = region.getByRole("region", { name: `来源 ${source}`, exact: true });
+  await connection.getByRole("button", { name: "管理来源" }).click();
+  await connection.getByRole("button", { name: "生成投递凭据" }).click(); await page.getByRole("dialog").getByRole("button", { name: "生成凭据" }).click();
+  await expect(connection.getByLabel("一次性投递凭据")).not.toHaveValue("");
+  await connection.getByRole("button", { name: "隐藏凭据" }).click();
+  await connection.getByRole("button", { name: "发送连通测试事件" }).click();
+  await region.getByText(/最近事件与处理结果（/).click(); await expect(region.getByText("已接收", { exact: true })).toHaveCount(1);
+  await connection.getByRole("button", { name: "处理待办事件" }).click(); await expect(region.getByRole("link", { name: "查看草稿" })).toBeVisible();
+  await region.getByRole("link", { name: "查看草稿" }).click();
+  await expect(page.getByRole("heading", { name: "项目经验", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "修订内容" }).click(); await page.getByLabel("标题", { exact: true }).fill("本地网页测试来源待核对");
+  await page.getByLabel("工具标识").fill("calculator"); await page.getByLabel("适用版本").fill("v1");
+  await page.getByLabel("经验内容").fill("仅验证网页管理流程。此记录不代表内部测试、模型修复或真实 Hook 投递成功。");
+  await page.getByRole("button", { name: "保存草稿" }).click(); await expect(page.getByRole("heading", { name: "本地网页测试来源待核对" })).toBeVisible();
+  await page.getByRole("button", { name: "确认经验", exact: true }).click(); await expect(page.getByRole("button", { name: "撤回经验", exact: true })).toBeVisible();
+  await page.getByText("适用范围与索引", { exact: true }).click(); await page.getByLabel("允许作为其他版本的历史参考").check(); await page.getByRole("button", { name: "保存适用策略" }).click();
+  await expect(page.getByText(/当前有效期至/)).toBeVisible();
+  await page.reload(); await expect(page.getByRole("heading", { name: "本地网页测试来源待核对" })).toBeVisible();
+  await page.getByRole("button", { name: "撤回经验", exact: true }).click(); await expect(page.getByRole("button", { name: "确认经验", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "删除经验", exact: true }).click(); await page.getByRole("dialog").getByRole("button", { name: "删除经验" }).click(); await expect(page.getByText("正文已删除。来源与状态记录仍保留，用于核对删除和清理过程。")).toBeVisible();
+  await page.goto(`/workspace/connections?project=${project}#memory`); await connection.getByRole("button", { name: "管理来源" }).click();
+  await connection.getByText("内容外发授权", { exact: true }).click(); await connection.getByLabel("我允许所选内容用于上述外部服务调用").check(); await connection.getByRole("button", { name: "保存授权" }).click();
+  await expect(connection.getByRole("button", { name: "撤销授权" })).toBeVisible(); await connection.getByRole("button", { name: "撤销授权" }).click(); await expect(connection.getByRole("button", { name: "撤销授权" })).toHaveCount(0);
+  await connection.getByRole("button", { name: "撤销凭据" }).click(); await page.getByRole("dialog").getByRole("button", { name: "撤销凭据" }).click(); await expect(connection.getByRole("button", { name: "生成投递凭据" })).toBeVisible();
+  await connection.getByRole("button", { name: "暂停接收" }).click(); await expect(connection.getByRole("button", { name: "发送连通测试事件" })).toBeDisabled();
+  await page.screenshot({ path: "../artifacts/m4r/connections-real.png", fullPage: true });
+  expect(await page.locator(".memory-error").count()).toBe(0);
+});

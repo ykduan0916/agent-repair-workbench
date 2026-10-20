@@ -24,6 +24,8 @@ from agent_workbench.controlled_tools.contracts import target_key
 from agent_workbench.controlled_tools.resources import TaskResourceRegistry
 from agent_workbench.controlled_tools.responses import ResourceError
 from agent_workbench.controlled_tools.runtime import _owned
+from agent_workbench.experience_memory.agent_models import CONTEXT_DENIALS
+from agent_workbench.experience_memory.agent_runtime import MemorySession
 from agent_workbench.mcp_config import digest
 from agent_workbench.model_gateway.gateway import GatewayError, PreparedCall, Reply
 from agent_workbench.model_gateway.rejections import (
@@ -76,8 +78,17 @@ class RepairController:
         mode: Literal["single_role", "three_role"],
         image_root: Path,
         clock: Callable[[], float] = time.monotonic,
+        memory: MemorySession | None = None,
     ):
         self.store, self.snapshots, self.baseline = store, snapshots, baseline
+        self.memory = memory
+        if memory is not None and (
+            mode != "three_role"
+            or memory.directory != store.directory.resolve()
+            or memory.task_kind != "repair"
+            or memory.task_id != registry.task_spec().task_id
+        ):
+            raise StoreError("memory_binding_invalid")
         self.registry, self.adapter, self.mode = registry, adapter, mode
         self.image_root, self.clock = image_root, clock
         self._web_store: WebRepairStore | None = None
@@ -183,14 +194,27 @@ class RepairController:
                     ),
                 }
             )
+        selection = self.memory.select(self._role) if self.memory is not None else None
+        if self.memory is not None and selection is not None:
+            messages = self.memory.messages(messages, selection)
         prepared = self.adapter.prepare(
             self._role, messages, min(OUTPUT_LIMIT, self.cursor.task.budget.output_tokens)
         )
         if len(prepared.body) > 65536 or digest(prepared.body) != prepared.request_sha256:
             raise Halt("failed", "INVALID_MODEL_OUTPUT")
         self._check_cancelled()
+        call_id = str(uuid4())
         admitted = self.store.reserve_model(
-            self.cursor.task.task_id, str(uuid4()), self._role, prepared, **self._cas()
+            self.cursor.task.task_id,
+            call_id,
+            self._role,
+            prepared,
+            memory_admission=self.memory.admission(
+                selection, call_id, self._role, prepared.request_sha256
+            )
+            if self.memory is not None and selection is not None
+            else None,
+            **self._cas(),
         )
         self.cursor = admitted
         if admitted.claim is None:
@@ -458,6 +482,8 @@ class RepairController:
 
     async def _loop(self) -> RepairResult:
         try:
+            if self.memory is not None:
+                await self.memory.prefetch(time.monotonic() + self.remaining())
             self.bridge = RepairToolBridge(
                 store=self.store,
                 registry=self.registry,
@@ -483,7 +509,9 @@ class RepairController:
         except Halt as halt:
             self._stop(halt.outcome, halt.code)
         except StoreError as error:
-            if self.cursor.task.phase in PENDING:
+            if self.memory is not None and error.code in CONTEXT_DENIALS:
+                self._stop("inconclusive", "PERMISSION_DENIED")
+            elif self.cursor.task.phase in PENDING:
                 self._reconcile = True
             else:
                 self._stop(

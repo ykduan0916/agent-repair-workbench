@@ -3,6 +3,9 @@
 from dataclasses import dataclass, field
 from typing import Literal, Never, SupportsIndex
 
+from pydantic import model_validator
+
+from agent_workbench.experience_memory.agent_models import MemoryBinding
 from agent_workbench.mcp_config import canonical, digest
 from agent_workbench.orchestration.contracts import Budget, Contract, Identifier
 from agent_workbench.repair_cases.profiles import RepairCaseId
@@ -18,8 +21,23 @@ class RepairRequest(Contract):
     case_id: RepairCaseId
     mode: RepairMode
 
+    memory: MemoryBinding | None = None
+
+    @model_validator(mode="after")
+    def memory_mode(self) -> "RepairRequest":
+        if self.memory is not None and self.mode == "single_role":
+            raise ValueError("memory_mode_unsupported")
+        return self
+
     def fingerprint(self) -> str:
-        return digest(canonical({"version": 1, **self.model_dump(mode="json")}))
+        return digest(
+            canonical(
+                {
+                    "version": 2 if self.memory else 1,
+                    **self.model_dump(mode="json", exclude_none=True),
+                }
+            )
+        )
 
 
 class RepairAdmissionClaim:

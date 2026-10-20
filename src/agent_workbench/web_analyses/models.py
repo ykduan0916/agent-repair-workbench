@@ -3,7 +3,10 @@
 from dataclasses import dataclass, field
 from typing import Literal
 
+from pydantic import model_validator
+
 from agent_workbench.analysis_store.models import SaveResult
+from agent_workbench.experience_memory.agent_models import MemoryBinding
 from agent_workbench.mcp_config import canonical, digest
 from agent_workbench.orchestration.contracts import Budget, Contract, Identifier, Intent
 from agent_workbench.web_analyses.fencing import AnalysisWebFence
@@ -17,8 +20,23 @@ class AnalysisRequest(Contract):
     case_name: CaseName
     intent: Intent
 
+    memory: MemoryBinding | None = None
+
+    @model_validator(mode="after")
+    def memory_mode(self) -> "AnalysisRequest":
+        if self.memory is not None and self.intent == "check_only":
+            raise ValueError("memory_mode_unsupported")
+        return self
+
     def fingerprint(self) -> str:
-        return digest(canonical({"version": 1, **self.model_dump(mode="json")}))
+        return digest(
+            canonical(
+                {
+                    "version": 2 if self.memory else 1,
+                    **self.model_dump(mode="json", exclude_none=True),
+                }
+            )
+        )
 
 
 @dataclass(frozen=True)

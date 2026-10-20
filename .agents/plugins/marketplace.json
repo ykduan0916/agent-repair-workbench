@@ -1,0 +1,10 @@
+{
+  "name": "agent-repair-local",
+  "interface": {"displayName": "Agent 修复台 · 本地接入"},
+  "plugins": [{
+    "name": "agent-repair-events",
+    "source": {"source": "local", "path": "./integrations/codex"},
+    "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+    "category": "Productivity"
+  }]
+}

@@ -1,11 +1,12 @@
 /** B3: strict receipts, persisted intent and bounded requests. No automatic writes. */
 import { z } from "zod";
+import { memoryBindingSchema } from "./memory";
 import { repairTaskSchema, repairSnapshotSchema } from "./repairs";
 import { readJSON, RunApiError } from "./runs";
 const uuid = z.string().uuid();
 const cases = z.enum(["output_mismatch", "counter_offset"]);
 const modes = z.enum(["single_role", "three_role"]);
-export const pendingRepairSchema = z.strictObject({ request_id: uuid, case_id: cases, mode: modes });
+export const pendingRepairSchema = z.strictObject({ request_id: uuid, case_id: cases, mode: modes, memory: memoryBindingSchema.optional() });
 export type PendingRepair = z.infer<typeof pendingRepairSchema>;
 export const REPAIR_PENDING_KEY = "awb-pending-repair-v1";
 const { case_id: _case, sha256: _hash, recorded_outcome, ...fields } = repairTaskSchema.shape;

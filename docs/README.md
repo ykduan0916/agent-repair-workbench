@@ -78,11 +78,11 @@
 
 - [41：真实网页修复闭环验收](41-p1-01-b5-delivery.md)
 
-- [42：项目经验记忆调研与实施设计](42-p1-02-memory-research-design.md) — 早期历史方案；当前业务及接入以44为准，运行功能未实现。
+- [42：项目经验记忆调研与实施设计](42-p1-02-memory-research-design.md) — 早期历史方案；当前业务及接入以44为准，实际交付分别见46—49。
 
 - [43 模型回复诊断与格式纠正](43-rel-01-02-model-recovery.md)
 
-- [44：长期记忆业务、外部接入与产品交互](44-p1-02-memory-product-and-integration.md) — 当前业务依据：三类记忆、参考与验证边界、业务Hook、接入契约、页面操作和验收门禁；尚未实现。
+- [44：长期记忆业务、外部接入与产品交互](44-p1-02-memory-product-and-integration.md) — 当前业务依据：三类记忆、参考与验证边界、业务Hook、接入契约、页面操作和验收门禁；实施状态见台账和46—49交付记录。
 
 - [45：Cognee选型与契约验证](45-mr-01-cognee-contract-validation.md) — 独立环境的版本、既有模型兼容、来源与删除实测；不等于产品记忆上线。
 
@@ -93,3 +93,7 @@
 - [M1-R：权威领域与事件存储独立评审](reviews/M1-R-authority-review.md) — 限定领域范围通过，实际引擎和外部Hook尚待接入验收。
 
 - [47：经验检索与使用](47-m2-r-engine-and-retrieval.md) — 本机SDK/CLI、授权、引用校验、账单、清理与真实契约验收。
+
+- [网页经验管理与外部事件接入](48-m4-r-web-memory-hooks.md)
+
+- [M3-R：Agent 经验取用与修复草稿](49-m3-r-agent-memory.md)

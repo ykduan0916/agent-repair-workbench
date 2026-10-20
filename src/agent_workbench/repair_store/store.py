@@ -481,6 +481,7 @@ class RepairStore:
         patch: CandidatePatch | None = None,
         candidate_id: str | None = None,
         tool: Tool | None = None,
+        memory_admission: Callable[[Connection], None] | None = None,
     ) -> Mutation:
         _uuid(task_id)
         _uuid(request_id)
@@ -582,6 +583,10 @@ class RepairStore:
                 candidate_count=task.candidate_count + bool(candidate),
             )
             result = self._commit(connection, task, new, "reserved", req, candidate, insert=True)
+            if memory_admission is not None:
+                if prepared is None:
+                    raise StoreError("memory_admission_invalid")
+                memory_admission(connection)
             return Mutation(
                 result.task,
                 result.task_sha256,
@@ -600,6 +605,7 @@ class RepairStore:
         expected_revision: int,
         expected_sha256: str,
         fence: RepairFence,
+        memory_admission: Callable[[Connection], None] | None = None,
     ) -> Mutation:
         # Validate numeric types before pure accounting (bool must not act as int).
         if (
@@ -627,6 +633,7 @@ class RepairStore:
             expected_sha256=expected_sha256,
             fence=fence,
             prepared=prepared,
+            memory_admission=memory_admission,
         )
 
     def reserve_tool(

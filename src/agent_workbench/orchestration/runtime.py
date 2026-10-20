@@ -2,6 +2,7 @@
 
 import asyncio
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, TypedDict, cast
@@ -10,6 +11,7 @@ from uuid import uuid4
 from langchain_core.runnables import RunnableLambda
 from langgraph.graph import END, START, StateGraph
 from langsmith import tracing_context
+from sqlalchemy import Connection
 
 from agent_workbench.agents.diagnosis.agent import build as diagnosis
 from agent_workbench.agents.diagnosis.contracts import DiagnosisConclusion
@@ -22,6 +24,8 @@ from agent_workbench.analysis_store.store import AnalysisStore
 from agent_workbench.controlled_tools.contracts import ToolDecision, target_key
 from agent_workbench.controlled_tools.resources import TaskResourceRegistry
 from agent_workbench.controlled_tools.runtime import ExecutionContext, ToolRuntime
+from agent_workbench.experience_memory.agent_models import CONTEXT_DENIALS
+from agent_workbench.experience_memory.agent_runtime import MemorySession
 from agent_workbench.model_gateway.gateway import (
     Adapter,
     GatewayError,
@@ -61,8 +65,16 @@ class AnalysisRuntime:
         adapter: Adapter | None,
         *,
         image_root: Path | None = None,
+        memory: MemorySession | None = None,
     ):
         self.registry, self.store, self.adapter = registry, store, adapter
+        self.memory = memory
+        if memory is not None and (
+            memory.directory != store.directory.resolve()
+            or memory.task_kind != "analysis"
+            or memory.task_id != registry.task_spec().task_id
+        ):
+            raise StoreError("memory_binding_invalid")
         self.tools = ToolRuntime(registry, store=store, image_root=image_root)
         self.agents = {"diagnosis": diagnosis(), "repair": repair(), "verification": verification()}
         self.messages: dict[Role, list[dict[str, str]]] = {}
@@ -82,7 +94,13 @@ class AnalysisRuntime:
         value.update(changes, summary_revision=self.summary.summary_revision + 1)
         return AnalysisSummary.model_validate(value)
 
-    def save(self, event: AnalysisEvent, **changes: object) -> None:
+    def save(
+        self,
+        event: AnalysisEvent,
+        *,
+        memory_admission: Callable[[Connection], None] | None = None,
+        **changes: object,
+    ) -> None:
         current = self.saved
         self.saved = self.store.save(
             self.updated(**changes),
@@ -90,6 +108,7 @@ class AnalysisRuntime:
             expected_revision=current.summary.summary_revision,
             expected_sha256=current.sha256,
             fence=self.fence,
+            memory_admission=memory_admission,
         )
         if self.saved.reused:
             # A replayed ledger entry never authorizes a second external action.
@@ -185,13 +204,22 @@ class AnalysisRuntime:
         self.remaining()
         messages = self.messages.setdefault(role, self.agents[role].messages(self.context(role)))
         # Context contains only registry resources; the fresh role never inherits previous chats.
-        request = self.adapter.prepare(role, messages, self.summary.budget.output_tokens)
+        selection = self.memory.select(role) if self.memory is not None else None
+        outgoing = (
+            self.memory.messages(messages, selection)
+            if self.memory is not None and selection is not None
+            else messages
+        )
+        request = self.adapter.prepare(role, outgoing, self.summary.budget.output_tokens)
         usage = reserve(self.summary, request)
         call_id = str(uuid4())
         self.save(
             self.model_event("model_started", role, call_id, request),
             usage=usage,
             model_config_sha256=self.adapter.config_sha256,
+            memory_admission=self.memory.admission(selection, call_id, role, request.request_sha256)
+            if self.memory is not None and selection is not None
+            else None,
         )
         try:
             async with asyncio.timeout(self.remaining()):
@@ -453,6 +481,12 @@ class AnalysisRuntime:
             if self.registry.task_spec().intent == "check_only":
                 self.finish("check_complete")
                 return self.saved
+            if self.memory is not None:
+                try:
+                    await self.memory.prefetch(time.monotonic() + self.remaining())
+                except StoreError:
+                    self.finish("outcome_unknown", "INTERNAL_ERROR")
+                    return self.saved
             self.phase("diagnosing")
             graph = StateGraph(Route)
 
@@ -496,9 +530,12 @@ class AnalysisRuntime:
             self.finish("budget_exceeded" if code == "BUDGET_EXCEEDED" else "inconclusive", safe)
         except asyncio.CancelledError:
             self.finish("cancelled", "CANCELLED")
-        except StoreError:
-            # Do not overwrite a durable send/claim or pretend a failed save succeeded.
-            raise
+        except StoreError as error:
+            if self.memory is not None and error.code in CONTEXT_DENIALS:
+                self.finish("inconclusive", "PERMISSION_DENIED")
+            else:
+                # Do not overwrite a durable send/claim or pretend a failed save succeeded.
+                raise
         except Exception:
             self.finish("outcome_unknown", "INTERNAL_ERROR")
         finally:

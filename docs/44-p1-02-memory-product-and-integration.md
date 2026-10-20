@@ -229,8 +229,8 @@ Hook 只做轻量过滤和持久入队，不直接跑模型总结；本机服务
 | MR-01 记忆引擎与契约验证 | Feature P1 / done | [45锁定选型与实测](45-mr-01-cognee-contract-validation.md)；实验有条件通过，依赖安全残余保留，生产运行未开放 |
 | M1-R 权威领域与事件存储 | Feature P1 / done | [46交付](46-m1-r-authority-event-store.md)；权威领域、事件去重、outbox/租约、请求账本与0011迁移完成，独立评审通过 |
 | M2-R 检索、有效性复核与记账 | Feature P1 / done | [47实施与验收](47-m2-r-engine-and-retrieval.md)：Cognee适配、来源映射、参考分级、冲突、实际HTTP预算与回收 |
-| M3-R Agent与内部业务事件 | Feature P1 / planned | 既有角色接入；BH-06等主流程与异步加工边界验证 |
-| M4-R 外部接入与产品页面 | Feature P1 / planned | 本地适配器/Codex版本实测、页面真实动作、完整接入验收；CI/真实工具接入与P1-03协调 |
+| M3-R Agent与内部业务事件 | Feature P1 / done | [49实施与验收](49-m3-r-agent-memory.md)：逐请求授权、角色隔离、BH-06草稿、真实模型及生产网页闭环已通过；M5另验收益 |
+| M4-R 外部接入与产品页面 | Feature P1 / done | [48交付记录](48-m4-r-web-memory-hooks.md)：网页管理、事件接入与已信任Codex Hook实际触发；CI/真实工具接入与P1-03协调 |
 | M5-R 综合效果验收 | Feature P1 / planned | 真实模型/容器/外部事件、有无记忆对照、独立复审、前端与常驻同步 |
 
 原M1 ready是旧需求下的历史状态；旧工作包被本表取代，新工作包未满足依赖前不可直接开始存储实现。P1-02父任务保持in_progress。REL-01/02已经独立交付，不随记忆集成扩大重试。本文交付不启动完整实现，也不改变P0功能状态。
@@ -254,3 +254,7 @@ M0-B按planned → ready → in_progress → in_review → done完成；当时MR
 ### MR-01后续记录
 
 已完成隔离引擎实验，选型与契约见[45](45-mr-01-cognee-contract-validation.md)，已独立评审并以选型实验done结束（Conditional Pass；保留安全残余）。采用Cognee与既有DeepSeek、授权bge-m3；生产记忆、外部Hook和经验页面均未实现。3.1记录的是选型前状态，当前决定与残余风险以45为准。
+
+### ADR-M12：先接通管理与事件入口
+
+2026-10-19 用户明确调整顺序：M2-R → M4-R（网页管理、外部事件与 Hook）→ M3-R（Agent 取用与内部业务事件）→ M5-R（效果评估）。M4-R先提供真实权限、审核与事件状态，M3-R再消费经确认且授权的经验。当前范围的测试、独立评审、前端与常驻服务更新完成后统一推送。当前实施细则见[48](48-m4-r-web-memory-hooks.md)。

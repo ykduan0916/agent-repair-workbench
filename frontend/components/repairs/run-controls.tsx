@@ -1,5 +1,7 @@
 "use client";
 import Link from "next/link";
+import { TaskMemoryChoice } from "../memory/task-memory-choice";
+import { TaskMemoryUsage } from "../memory/task-memory-usage";
 import { useEffect, useRef, useState } from "react";
 import { Play, Square, RefreshCw } from "lucide-react";
 import { caseLabels, modeLabels, outcomes, phaseLabels, errorLabels } from "../../lib/repairs";
@@ -48,7 +50,7 @@ export default function RepairRunControls({ selected, onSelect, onRefresh }: Pro
     try {
       const raw = sessionStorage.getItem(REPAIR_PENDING_KEY);
       if (raw !== null) {
-        if (raw.length > 512) throw new Error();
+        if (raw.length > 1024) throw new Error();
         const saved = pendingRepairSchema.parse(JSON.parse(raw));
         setPending(saved); setChoice(saved); setUncertain(true); callbacks.current.onSelect(saved.request_id);
       }
@@ -133,15 +135,17 @@ export default function RepairRunControls({ selected, onSelect, onRefresh }: Pro
   const entries = events?.task_id === target ? events.events.map(e => ({ id: `${target}:${e.revision}`, at: Date.parse(e.at), source: e.role ? roles[e.role] : "系统",
     message: `${kinds[e.kind]}${e.tool ? `：${tools[e.tool]}` : e.operation ? `：${operations[e.operation]}` : ""}${e.error_code ? `；${errorLabels[e.error_code]}` : ""}`, level: e.error_code ? "error" as const : undefined })) : [];
   return <>
+    {task && <TaskMemoryUsage kind="repair" taskId={task.task_id} revision={task.revision} agentTokens={known} agentComplete={task.usage.usage_complete} />}
     <section className="pane rp-launch" aria-label="新建修复">
       <div className="rp-launch-row">
         <div className="field"><label htmlFor="repair-case">案例</label><select className="select" id="repair-case" value={choice.case_id} disabled={!!pending || submitting} onChange={e => setChoice(v => ({ ...v, case_id: e.target.value as PendingRepair["case_id"] }))}>{Object.entries(caseLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></div>
-        <div className="field"><label htmlFor="repair-mode">协作方式</label><select className="select" id="repair-mode" value={choice.mode} disabled={!!pending || submitting} onChange={e => setChoice(v => ({ ...v, mode: e.target.value as PendingRepair["mode"] }))}>{Object.entries(modeLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></div>
+        <div className="field"><label htmlFor="repair-mode">协作方式</label><select className="select" id="repair-mode" value={choice.mode} disabled={!!pending || submitting} onChange={e => setChoice(v => ({ ...v, mode: e.target.value as PendingRepair["mode"], memory: e.target.value === "single_role" ? undefined : v.memory }))}>{Object.entries(modeLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></div>
         <button className="btn btn-primary" disabled={disabled} aria-busy={submitting || undefined} onClick={() => void submit()}><Play size={14} aria-hidden="true" />{submitting ? "正在提交…" : "开始修复"}</button>
         <button className="btn btn-ghost" disabled={submitting} onClick={() => setRefresh(v => v + 1)}><RefreshCw size={14} aria-hidden="true" />查询状态</button>
       </div>
+      <TaskMemoryChoice value={choice.memory} onChange={memory => setChoice(v => ({ ...v, memory }))} disabled={submitting || !!pending} supported={choice.mode === "three_role"} />
       <p className="muted small">运行内置案例 → 核对代码差异与回归 → 人工决定 → 下载补丁。不会写回你的代码。 <Link className="link" href="/docs/27-local-development-guide#网页修复与本机常驻服务">操作指南</Link></p>
-      {catalog && <details className="rp-budget"><summary>本次预算上限</summary><p className="muted small">模型 {catalog.budget.model_calls} 次 · 工具 {catalog.budget.tool_calls} 次 · 候选 {catalog.budget.candidates} 个 · {catalog.budget.timeout_seconds} 秒 · {formatNumber(catalog.budget.total_tokens)} tokens（单次输出 {formatNumber(catalog.budget.output_tokens)}）。格式纠正最多一次，计入上述预算；超时和未知结果不重试。费用未配置，未知用量保留预留。</p></details>}
+      {catalog && <details className="rp-budget"><summary>本次预算上限</summary><p className="muted small">Agent 模型 {catalog.budget.model_calls} 次 · 工具 {catalog.budget.tool_calls} 次 · 候选 {catalog.budget.candidates} 个 · {catalog.budget.timeout_seconds} 秒 · {formatNumber(catalog.budget.total_tokens)} tokens（单次输出 {formatNumber(catalog.budget.output_tokens)}）。启用经验时，另有一次检索，最多 6 次检索 LLM 与 40 次向量请求；检索 100,000 与 Agent 1,900,000 tokens 共同受总额约束。格式纠正最多一次，计入 Agent 预算；超时和未知结果不重试。费用未配置，未知用量保留预留。</p></details>}
       {blocked && <p className="small muted">{blocked} <Link className="link" href="/workspace/connections">查看环境</Link>{catalog?.slot.task_id && <button className="link rp-inline" onClick={() => callbacks.current.onSelect(catalog.slot.task_id!)}>查看活动修复</button>}</p>}
       {error && <Callout tone="fail" title="提交存储不可用">{error}</Callout>}
       {queryError && <p role="status" className="small">{queryError}</p>}

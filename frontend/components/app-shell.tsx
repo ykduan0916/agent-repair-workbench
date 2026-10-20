@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Braces, GitCompareArrows, Home, Layers3, Menu, Plug, ScanSearch, X } from "lucide-react";
+import { BookOpen, Braces, GitCompareArrows, Home, Layers3, Menu, Plug, ScanSearch, X } from "lucide-react";
 import ThemeSwitch from "./ui/theme-switch";
 import EnvironmentStatus from "./environment-status";
 import { EnvironmentProvider } from "./ui/environment-context";
@@ -16,6 +16,7 @@ export const workspaceNav = [
   { href: "/workspace/tasks", label: "复现", icon: Layers3 },
   { href: "/workspace/diagnosis", label: "分析", icon: ScanSearch },
   { href: "/workspace/repairs", label: "修复", icon: GitCompareArrows },
+  { href: "/workspace/memory", label: "项目经验", icon: BookOpen },
 ] as const;
 const setupNav = [{ href: "/workspace/connections", label: "环境与接入", icon: Plug }] as const;
 

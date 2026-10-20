@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Download, RefreshCw, X } from "lucide-react";
+import { SaveRepairMemory } from "../memory/save-repair-memory";
 import { Callout } from "../ui/callout";
 import { RunApiError } from "../../lib/runs";
 import {
@@ -146,6 +147,7 @@ export function ApprovalPanel({ taskId, candidate, comparison, onRefresh }: { ta
       <button type="button" className="btn btn-sm btn-ghost" disabled={!canReject || busy} onClick={() => void decide("rejected")}><X size={14} aria-hidden="true" />{pending?.decision === "rejected" && !decision ? "按原请求拒绝" : "拒绝候选"}</button>
       {receipt?.can_download && <button type="button" className="btn btn-sm" disabled={busy} onClick={() => void download()}><Download size={14} aria-hidden="true" />下载补丁</button>}
     </div>
+    {receipt && <SaveRepairMemory key={`${taskId}:${candidate.candidate_id}`} taskId={taskId} candidateId={candidate.candidate_id} receipt={receipt} />}
     {decision && <p className="muted small">第 {decision.revision} 次决定 · 当前任务修订 {receipt?.revision ?? decision.revision} · 历史 {decision.history.length} 条。</p>}
     {retryPending && <span className="sr-only">可以按原请求重试。</span>}
   </section>;

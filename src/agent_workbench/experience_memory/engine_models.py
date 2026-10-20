@@ -10,7 +10,7 @@ from .models import Contract, Digest, Key, Kind
 class Grant(Contract):
     connection_id: Key
     content_type: Literal["query", "episode", "repair_experience", "project_constraint"]
-    purpose: Literal["index", "retrieve"]
+    purpose: Literal["index", "retrieve", "agent_context"]
     enabled: bool
     expires_at: Annotated[float, Field(ge=0, allow_inf_nan=False)]
 

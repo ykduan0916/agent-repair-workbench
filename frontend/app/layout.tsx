@@ -9,6 +9,7 @@ import "./styles/analysis.css";
 import "./styles/repairs.css";
 import "./styles/workbench.css";
 import "./styles/environment.css";
+import "./styles/memory.css";
 import "./styles/landing.css";
 import "./styles/docs.css";
 

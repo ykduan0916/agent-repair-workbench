@@ -28,6 +28,7 @@ from agent_workbench.candidate_execution.compare import (
 from agent_workbench.candidate_execution.docker import verified_image
 from agent_workbench.candidate_execution.oracle import ORACLE_SHA256, SUITE_SHA256, run_oracle
 from agent_workbench.candidates.contracts import CandidateError, CandidatePatch
+from agent_workbench.candidates.diagnostics import candidate_failure_code
 from agent_workbench.candidates.snapshots import SnapshotHandle, SnapshotStore
 from agent_workbench.controlled_tools.contracts import (
     ReadEvidence,
@@ -423,7 +424,7 @@ class RepairToolBridge:
             unknown = error.code == "SNAPSHOT_COMMIT_UNKNOWN"
             self._cursor = self.store.finish_candidate(
                 admitted.claim,
-                error_code="RESULT_UNKNOWN" if unknown else "TOOL_FAILED",
+                error_code=candidate_failure_code(error.code),
                 **self._cas(),
             )
             return self._response(request, error="RESULT_UNKNOWN" if unknown else "TOOL_FAILURE")

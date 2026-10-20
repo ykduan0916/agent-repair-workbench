@@ -9,6 +9,7 @@ from sqlalchemy.engine import Connection, RowMapping
 from agent_workbench.analysis_store.fencing import AnalysisFence
 from agent_workbench.analysis_store.models import AnalysisEvent, SaveResult
 from agent_workbench.analysis_store.store import AnalysisStore, _hash
+from agent_workbench.experience_memory.agent_models import MemoryBinding, agent_budget
 from agent_workbench.mcp_config import digest
 from agent_workbench.orchestration.contracts import AnalysisSummary
 from agent_workbench.orchestration.policy import transition
@@ -39,7 +40,12 @@ class WebAnalysisStore(AnalysisStore):
             raise StoreError("web_analysis_not_found")
         try:
             request = AnalysisRequest(
-                request_id=row["request_id"], case_name=row["case_name"], intent=row["intent"]
+                request_id=row["request_id"],
+                case_name=row["case_name"],
+                intent=row["intent"],
+                memory=MemoryBinding.model_validate_json(row["memory_binding"])
+                if row["memory_binding"]
+                else None,
             )
             if request.fingerprint() != row["payload_sha256"]:
                 raise ValueError
@@ -152,7 +158,7 @@ class WebAnalysisStore(AnalysisStore):
             summary.task_id != request.request_id
             or summary.state.intent != request.intent
             or summary.source_kind != "synthetic"
-            or summary.budget != WEB_BUDGET
+            or summary.budget != agent_budget(request.memory, WEB_BUDGET)
         ):
             raise StoreError("invalid_analysis")
         with self._transaction(write=True) as connection:
@@ -180,6 +186,9 @@ class WebAnalysisStore(AnalysisStore):
                     payload_sha256=request.fingerprint(),
                     case_name=request.case_name,
                     intent=request.intent,
+                    memory_binding=request.memory.model_dump_json().encode()
+                    if request.memory
+                    else None,
                     policy_sha256=policy_sha256,
                     initial_sha256=saved.sha256,
                     claim_sha256=digest(token.encode("ascii")),

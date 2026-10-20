@@ -10,7 +10,9 @@ export const documentationGroups: readonly DocumentationGroup[] = [
     title: "使用指南",
     description: "安装、启动和每个功能的用法。",
     entries: [
+      { title: "Agent 经验取用与修复草稿", slug: "49-m3-r-agent-memory", summary: "逐次授权参考、用量记录、角色隔离与修复经验保存。" },
       { title: "项目介绍与快速上手", slug: "getting-started", summary: "解决什么问题、一个具体例子，以及第一次检查的命令。" },
+      { title: "管理项目经验与事件接入", slug: "48-m4-r-web-memory-hooks", summary: "创建来源、接入事件、确认经验、授权索引、撤回清理与本机 Hook 配置。" },
       { title: "本地运行指南", slug: "27-local-development-guide", summary: "启动网页、配置模型、准备 Docker 镜像、运行记录的备份与恢复。" },
     ],
   },
@@ -34,7 +36,7 @@ export const documentationGroups: readonly DocumentationGroup[] = [
       { title: "经验检索与使用", slug: "47-m2-r-engine-and-retrieval", summary: "配置授权、索引与检索、来源复核、撤回清理和真实测试边界。" },
       { title: "经验与事件存储", slug: "46-m1-r-authority-event-store", summary: "项目归属、确认与修订、事件去重、后台任务恢复和使用边界。" },
       { title: "记忆引擎选型与契约验证", slug: "45-mr-01-cognee-contract-validation", summary: "Cognee、现有模型、来源和删除的实测结果，以及生产接入门禁。" },
-      { title: "长期记忆业务与接入设计", slug: "44-p1-02-memory-product-and-integration", summary: "业务定位、外部Hook、记忆职责、页面操作和验收门禁；尚未实现。" },
+      { title: "长期记忆业务与接入设计", slug: "44-p1-02-memory-product-and-integration", summary: "业务定位、外部 Hook、记忆职责、页面操作和分阶段验收门禁。" },
       { title: "模型回复诊断与格式纠正", slug: "43-rel-01-02-model-recovery", summary: "拒绝阶段、一次纠正的边界、预算保护和测试证据。" },
       { title: "项目经验记忆早期设计", slug: "42-p1-02-memory-research-design", summary: "早期调研及历史规格，当前方案见长期记忆业务与接入设计。" },
       { title: "网页修复闭环验收", slug: "41-p1-01-b5-delivery", summary: "真实模型、容器、网页审批与下载的集成门禁，以及测试边界。" },

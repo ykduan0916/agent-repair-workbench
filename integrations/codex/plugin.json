@@ -1,0 +1,6 @@
+{
+  "name": "agent-repair-events",
+  "version": "0.1.0",
+  "description": "将明确选择的测试完成事件送入本地 Agent 修复台；不读取会话存档。",
+  "extensions": {"com.openai": {"hooks": "./hooks/hooks.json"}}
+}

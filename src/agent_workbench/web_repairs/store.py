@@ -6,6 +6,7 @@ from sqlalchemy import Connection, RowMapping, select, update
 
 from agent_workbench.analysis_store.store import _hash
 from agent_workbench.candidate_execution.models import OracleReport
+from agent_workbench.experience_memory.agent_models import MemoryBinding, agent_budget
 from agent_workbench.mcp_config import canonical, digest
 from agent_workbench.orchestration.contracts import Usage
 from agent_workbench.repair_cases.profiles import get_profile
@@ -90,7 +91,12 @@ class WebRepairStore(RecoveryInventory):
             raise StoreError("web_repair_not_found")
         try:
             request = RepairRequest(
-                request_id=row["request_id"], case_id=row["case_id"], mode=row["mode"]
+                request_id=row["request_id"],
+                case_id=row["case_id"],
+                mode=row["mode"],
+                memory=MemoryBinding.model_validate_json(row["memory_binding"])
+                if row["memory_binding"]
+                else None,
             )
             if request.fingerprint() != row["payload_sha256"]:
                 raise ValueError
@@ -137,7 +143,13 @@ class WebRepairStore(RecoveryInventory):
         if (
             task.mode != row["mode"]
             or task.source_analysis_id is not None
-            or task.budget != WEB_BUDGET
+            or task.budget
+            != agent_budget(
+                MemoryBinding.model_validate_json(row["memory_binding"])
+                if row["memory_binding"]
+                else None,
+                WEB_BUDGET,
+            )
             or task.model_config_sha256 is None
             or created.task_sha256 != row["initial_sha256"]
             or digest(_bytes(initial)) != row["initial_sha256"]
@@ -169,7 +181,14 @@ class WebRepairStore(RecoveryInventory):
         with self._base._transaction() as connection:
             row = self._receipt(connection, _uuid(task_id))
             return RepairReceipt(
-                RepairRequest(request_id=task_id, case_id=row["case_id"], mode=row["mode"]),
+                RepairRequest(
+                    request_id=task_id,
+                    case_id=row["case_id"],
+                    mode=row["mode"],
+                    memory=MemoryBinding.model_validate_json(row["memory_binding"])
+                    if row["memory_binding"]
+                    else None,
+                ),
                 self._saved(connection, row),
                 bool(row["cancel_requested"]),
                 bool(row["active"]),
@@ -203,7 +222,7 @@ class WebRepairStore(RecoveryInventory):
                     initial.task_id != request.request_id
                     or initial.mode != request.mode
                     or initial.source_analysis_id is not None
-                    or initial.budget != WEB_BUDGET
+                    or initial.budget != agent_budget(request.memory, WEB_BUDGET)
                     or initial.model_config_sha256 is None
                     or initial.baseline.manifest_sha256 != profile.manifest_sha256
                     or initial.baseline.file_sha256 != profile.source_sha256
@@ -229,6 +248,9 @@ class WebRepairStore(RecoveryInventory):
                         payload_sha256=request.fingerprint(),
                         case_id=request.case_id,
                         mode=request.mode,
+                        memory_binding=request.memory.model_dump_json().encode()
+                        if request.memory
+                        else None,
                         policy_sha256=policy_sha256,
                         initial_sha256=saved.task_sha256,
                         claim_sha256=digest(token.encode("ascii")),
@@ -335,7 +357,14 @@ class WebRepairStore(RecoveryInventory):
                 )
                 cancelled = True
             result = RepairReceipt(
-                RepairRequest(request_id=task_id, case_id=row["case_id"], mode=row["mode"]),
+                RepairRequest(
+                    request_id=task_id,
+                    case_id=row["case_id"],
+                    mode=row["mode"],
+                    memory=MemoryBinding.model_validate_json(row["memory_binding"])
+                    if row["memory_binding"]
+                    else None,
+                ),
                 saved,
                 cancelled,
                 bool(row["active"]),
@@ -386,7 +415,12 @@ class WebRepairStore(RecoveryInventory):
         stamp = digest(
             canonical(
                 {
-                    "receipt": dict(row),
+                    "receipt": {
+                        **dict(row),
+                        "memory_binding": digest(row["memory_binding"])
+                        if row["memory_binding"] is not None
+                        else None,
+                    },
                     "task": task.model_dump(mode="json"),
                     "requests": {k: v.model_dump(mode="json") for k, v in requests.items()},
                     "candidates": {k: v.model_dump(mode="json") for k, v in candidates.items()},

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import ConnectionsConsole from "../../../../components/connections-console";
 import AnalysisHistory from "../../../../components/analysis-history";
 import RepairWorkspace from "../../../../components/repair-workspace";
+import MemoryWorkspace from "../../../../components/memory-workspace";
 import RunHistory from "../../../../components/run-history";
 import { modules, type ModuleKey } from "../../../../lib/modules";
 
@@ -21,6 +22,7 @@ export default async function ModulePage({ params }: { params: Promise<{ section
   if (!Object.hasOwn(modules, section)) notFound();
   if (section === "repairs") return <RepairWorkspace section="repairs" />;
   if (section === "diagnosis") return <AnalysisHistory />;
+  if (section === "memory") return <MemoryWorkspace />;
   if (section === "connections") return <ConnectionsConsole />;
   return <RunHistory />;
 }

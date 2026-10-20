@@ -10,6 +10,7 @@ from uuid import uuid4
 from agent_workbench.candidates.snapshots import SnapshotStore
 from agent_workbench.controlled_tools.resources import load_repair_case
 from agent_workbench.controlled_tools.runtime import _owned
+from agent_workbench.experience_memory.agent_models import agent_budget
 from agent_workbench.mcp_config import ROOT
 from agent_workbench.model_gateway.gateway import Config
 from agent_workbench.model_gateway.repair import RepairAdapter, RepairDeepSeekAdapter
@@ -18,6 +19,7 @@ from agent_workbench.repair_store.fencing import RepairFence
 from agent_workbench.repair_store.models import RepairTask
 from agent_workbench.run_store.models import StoreError
 from agent_workbench.web_analyses.catalog import model_config
+from agent_workbench.web_memory.agent_service import make_session
 from agent_workbench.web_runs.service import Admission
 
 from . import catalog
@@ -220,7 +222,9 @@ class RepairService:
                 raise StoreError("service_stopping")
             fence.acquire()
             registry = load_repair_case(
-                request.case_id, task_id=request.request_id, budget=WEB_BUDGET
+                request.case_id,
+                task_id=request.request_id,
+                budget=agent_budget(request.memory, WEB_BUDGET),
             )
             snapshots = SnapshotStore(self.directory / "repair-snapshots")
             baseline = snapshots.create_baseline(str(uuid4()), case_id=request.case_id)
@@ -229,7 +233,7 @@ class RepairService:
                 mode=request.mode,
                 baseline=baseline.ref,
                 started_at=datetime.now(UTC),
-                budget=WEB_BUDGET,
+                budget=agent_budget(request.memory, WEB_BUDGET),
                 model_config_sha256=adapter.config_sha256,
             )
             admission = store.admit(
@@ -259,6 +263,7 @@ class RepairService:
                 adapter=adapter,
                 mode=request.mode,
                 image_root=self.image_root,
+                memory=make_session(self.directory, request.memory, registry, "repair"),
             ).run_created(admission.claim, admission.saved, fence)
             await WebRepairRecovery(store, self.image_root).release_checked(
                 request.request_id,
