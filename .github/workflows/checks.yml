@@ -28,7 +28,7 @@ jobs:
       - run: uv run --frozen pytest
   product-ui:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     env:
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
@@ -52,13 +52,16 @@ jobs:
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
-      - run: npm run test:e2e
+      - run: npm run test:e2e -- --reporter=line
+        timeout-minutes: 20
         working-directory: frontend
       - run: npm run test:runs-live
+        timeout-minutes: 8
         working-directory: frontend
         env:
           PLAYWRIGHT_CHANNEL: ""
       - run: npm run test:analyses-live
+        timeout-minutes: 8
         working-directory: frontend
         env:
           PLAYWRIGHT_CHANNEL: ""
