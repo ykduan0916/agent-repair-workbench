@@ -14,6 +14,25 @@ export type ChangelogDay = { date: string; entries: readonly ChangelogEntry[] };
 
 export const changelog: readonly ChangelogDay[] = [
   {
+    date: "2026-10-21",
+    entries: [{
+      slug: "memory-comparison-results", title: "查看经验参考的实际对照结果",
+      changes: ["站内文档更新无参考、正确建议和错误建议的完整结果，分别列出实际引用、修复效果、耗时与总用量。"],
+      limit: "当前只覆盖内置案例；尚未证明跨版本或独立工具上的收益。",
+    }, {
+      slug: "memory-index-failure", title: "明确显示记忆索引失败的位置",
+      changes: ["索引失败时区分本机分词资源、引擎阶段与接口故障，并保留未知用量。", "部分向量请求失败可在原预算内有限恢复；分词资源改为预先校验的本地缓存。"],
+      limit: "每个请求最多尝试三次；恢复成功仍可能有未知用量，记忆效果尚未完成评估。",
+    }, {
+      slug: "memory-hooks-home", title: "在记忆中管理 Hook 与事件",
+      changes: ["记忆模块分为记忆库与 Hook 与事件，来源管理和最近事件不再藏在环境配置中。", "直接核对事件接收、处理及生成的记忆记录；旧入口保留跳转并携带项目。"],
+    }, {
+      slug: "memory-evaluation-guide", title: "了解经验参考的效果与限制",
+      changes: ["站内文档新增经验对照评估，公开已执行结果、失败和完整成本口径，说明检索命中与实际引用的区别。"],
+      limit: "该轮评估受向量请求失败阻塞，尚未证明经验带来收益；历史经验仍须经当前测试验证。",
+    }],
+  },
+  {
     date: "2026-10-20",
     entries: [{
       slug: "agent-memory-reference", title: "让排查使用经授权的项目经验",

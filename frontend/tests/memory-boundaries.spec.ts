@@ -36,7 +36,7 @@ for (const theme of ["light", "dark"] as const) {
     const { calls } = await fixture(page);
     await page.setViewportSize({ width: 390, height: 844 }); await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
     await page.goto("/workspace/memory?project=demo&memory=memory-1");
-    await expect(page.getByRole("heading", { name: "项目经验", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "记忆", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "保留数值类型" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
     expect((await new AxeBuilder({ page }).include("main").withTags(["wcag2a", "wcag2aa"]).analyze()).violations).toEqual([]);
@@ -59,26 +59,27 @@ test("确认、修订、撤回、删除使用当前版本并不自动索引", as
 });
 test("凭据一次性展示，网页连通测试与处理状态分开", async ({ page }) => {
   const { calls } = await fixture(page);
-  await page.goto("/workspace/connections?project=demo#memory");
-  const region = page.getByRole("region", { name: "经验与事件", exact: true });
+  await page.goto("/workspace/memory/hooks?project=demo");
+  const region = page.getByRole("region", { name: "Hook 与事件", exact: true });
   await region.getByRole("button", { name: "管理来源" }).click(); await region.getByRole("button", { name: "生成投递凭据" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "生成凭据" }).click(); await expect(page.getByLabel("一次性投递凭据")).toHaveValue("only-once-test-token");
   expect(await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))).not.toContain("only-once-test-token");
   await region.getByRole("button", { name: "隐藏凭据" }).click(); await expect(page.getByLabel("一次性投递凭据")).toHaveCount(0);
   await region.getByRole("button", { name: "发送连通测试事件" }).click(); await expect(region).toContainText("不代表 Codex Hook 已安装或已投递");
-  await region.locator("summary").filter({ hasText: "最近事件与处理结果" }).click(); await expect(region.getByText("待处理", { exact: true })).toHaveCount(2);
+  await expect(region.getByText("待处理", { exact: true })).toHaveCount(2);
   await region.getByRole("button", { name: "处理待办事件" }).click(); await expect(region.getByText("已处理", { exact: true })).toHaveCount(2);
   await region.getByRole("button", { name: "暂停接收" }).click(); await expect(region.getByRole("button", { name: "发送连通测试事件" })).toBeDisabled();
   expect(calls.filter(c => c.path.endsWith("/events") && c.method === "POST")[0].body.outcome).toBe("unknown"); expect(calls.filter(c => c.method === "PATCH")[0].body.expected_version).toBe(2);
 });
 test("外发显式勾选，策略、确认和索引分开执行", async ({ page }) => {
   const { calls } = await fixture(page);
-  await page.goto("/workspace/connections?project=demo#memory"); await page.getByRole("button", { name: "管理来源" }).click();
+  await page.goto("/workspace/memory/hooks?project=demo"); await page.getByRole("button", { name: "管理来源" }).click();
   await page.getByText("内容外发授权", { exact: true }).click(); await expect(page.getByRole("button", { name: "保存授权" })).toBeDisabled();
   await page.getByLabel("我允许所选内容用于上述外部服务调用").check(); await page.getByRole("button", { name: "保存授权" }).click(); await expect(page.getByRole("button", { name: "保存授权" })).toBeDisabled();
   expect(calls.find(c => c.path.endsWith("/grants") && c.method === "POST")?.body.grant.purpose).toBe("index");
   await page.goto("/workspace/memory?project=demo&memory=memory-1"); await page.getByText("适用范围与索引", { exact: true }).click(); await expect(page.getByRole("button", { name: "建立索引" })).toBeDisabled();
   await page.getByRole("button", { name: "保存适用策略" }).click(); await page.getByRole("button", { name: "确认经验", exact: true }).click();
+  await expect(page.getByRole("button", { name: "确认经验", exact: true })).toHaveCount(0);
   await page.getByText("适用范围与索引", { exact: true }).click(); expect(calls.filter(c => c.path.endsWith("/engine"))).toHaveLength(0);
   await page.getByRole("button", { name: "建立索引" }).click(); await expect(page.getByText("索引已建立。后续检索仍会核对确认状态、授权与适用版本。")).toBeVisible(); expect(calls.filter(c => c.path.endsWith("/engine"))).toHaveLength(1);
 });
@@ -86,13 +87,16 @@ test("写入响应丢失不会自动重试或显示成功", async ({ page }) => 
   await fixture(page); let writes = 0;
   await page.route("**/api/memory/projects/demo/memories/memory-1", route => { writes++; return route.abort(); });
   await page.goto("/workspace/memory?project=demo&memory=memory-1"); await page.getByRole("button", { name: "确认经验", exact: true }).click();
-  await expect(page.getByRole("alert")).toBeVisible(); await expect(page.getByRole("button", { name: "撤回经验", exact: true })).toHaveCount(0); expect(writes).toBe(1);
+  await expect(page.locator("main").getByRole("alert")).toContainText("请求未完成"); await expect(page.getByRole("button", { name: "撤回经验", exact: true })).toHaveCount(0); expect(writes).toBe(1);
 });
 
 test("未知索引请求跨刷新保留标识且不会再次提交", async ({ page }) => {
   const { calls } = await fixture(page);
   await page.route("**/api/memory/projects/demo/engine/*", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ state: "unknown", result: { reason: "interrupted" } }) }));
-  await page.goto("/workspace/memory?project=demo&memory=memory-1"); await page.getByRole("button", { name: "确认经验", exact: true }).click(); await page.getByText("适用范围与索引", { exact: true }).click();
+  await page.goto("/workspace/memory?project=demo&memory=memory-1"); await page.getByRole("button", { name: "确认经验", exact: true }).click();
+  // Confirmation refreshes and remounts the versioned editor. Open the new one.
+  await expect(page.getByRole("button", { name: "确认经验", exact: true })).toHaveCount(0);
+  await page.getByText("适用范围与索引", { exact: true }).click();
   await page.getByRole("button", { name: "建立索引" }).click(); await expect(page.getByText("处理结果未知，已停止自动重试。请核对任务记录。")).toBeVisible();
   await expect(page.getByRole("button", { name: "建立索引" })).toBeDisabled(); await page.reload(); await page.getByText("适用范围与索引", { exact: true }).click();
   await expect(page.getByText("处理结果未知，已停止自动重试。请核对任务记录。")).toBeVisible(); await expect(page.getByRole("button", { name: "建立索引" })).toBeDisabled(); expect(calls.filter(c => c.path.endsWith("/engine"))).toHaveLength(1);
@@ -101,7 +105,10 @@ test("未知索引请求跨刷新保留标识且不会再次提交", async ({ pa
 test("明确拒绝接收的索引请求允许用户纠正后再提交", async ({ page }) => {
   await fixture(page);
   await page.route("**/api/memory/projects/demo/engine", route => route.fulfill({ status: 403, contentType: "application/json", body: '{"error":"forbidden"}' }));
-  await page.goto("/workspace/memory?project=demo&memory=memory-1"); await page.getByRole("button", { name: "确认经验", exact: true }).click(); await page.getByText("适用范围与索引", { exact: true }).click();
+  await page.goto("/workspace/memory?project=demo&memory=memory-1"); await page.getByRole("button", { name: "确认经验", exact: true }).click();
+  // Confirmation refreshes and remounts the versioned editor. Open the new one.
+  await expect(page.getByRole("button", { name: "确认经验", exact: true })).toHaveCount(0);
+  await page.getByText("适用范围与索引", { exact: true }).click();
   await page.getByRole("button", { name: "建立索引" }).click(); await expect(page.getByText("当前来源未获授权或连接已暂停。")).toBeVisible(); await expect(page.getByRole("button", { name: "建立索引" })).toBeEnabled();
 });
 
@@ -121,9 +128,71 @@ test("经验分页可达更早记录，深链接按权威详情读取", async ({
 
 test("深色手机接入表单可访问，凭据配置只下载到用户选择位置", async ({ page }) => {
   await fixture(page); await page.setViewportSize({ width: 390, height: 844 }); await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
-  await page.goto("/workspace/connections?project=demo#memory"); await page.getByRole("button", { name: "管理来源" }).click(); await page.getByRole("button", { name: "生成投递凭据" }).click(); await page.getByRole("dialog").getByRole("button", { name: "生成凭据" }).click();
+  await page.goto("/workspace/memory/hooks?project=demo"); await page.getByRole("button", { name: "管理来源" }).click(); await page.getByRole("button", { name: "生成投递凭据" }).click(); await page.getByRole("dialog").getByRole("button", { name: "生成凭据" }).click();
   await page.getByLabel("允许采集的项目绝对路径").fill("/tmp/approved-project"); await page.getByLabel("允许记录的测试命令（每行一条，精确匹配）").fill("uv run pytest");
   const download = page.waitForEvent("download"); await page.getByRole("button", { name: "下载本机接入配置" }).click(); expect((await download).suggestedFilename()).toBe("connection.json");
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   expect((await new AxeBuilder({ page }).include("#memory").withTags(["wcag2a", "wcag2aa"]).analyze()).violations).toEqual([]);
 });
+
+
+test("记忆子导航保留项目、展示事件，浏览不会触发写入", async ({ page }) => {
+  const { calls } = await fixture(page);
+  await page.goto("/workspace/memory?project=demo");
+  const nav = page.getByRole("navigation", { name: "记忆导航" });
+  await expect(nav.getByRole("link", { name: "记忆库", exact: true })).toHaveAttribute("aria-current", "page");
+  await nav.getByRole("link", { name: "Hook 与事件", exact: true }).click();
+  await expect(page).toHaveURL(/\/workspace\/memory\/hooks\?project=demo$/);
+  await expect(page.getByRole("navigation", { name: "产品模块" }).getByRole("link", { name: "记忆", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("region", { name: "来源 local-tests", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "最近事件与处理结果", exact: true }).getByText("待处理", { exact: true })).toBeVisible();
+  await nav.getByRole("link", { name: "记忆库", exact: true }).click();
+  await expect(page).toHaveURL(/\/workspace\/memory\?project=demo$/);
+  expect(calls.every(call => call.method === "GET")).toBe(true);
+});
+
+test("旧环境记忆入口保留项目跳转，新环境页不承载 Hook 管理", async ({ page }) => {
+  const { calls } = await fixture(page);
+  await page.goto("/workspace/connections?project=demo#memory");
+  await expect(page).toHaveURL(/\/workspace\/memory\/hooks\?project=demo$/);
+  await expect(page.getByRole("combobox", { name: "项目", exact: true })).toHaveValue("demo");
+  await page.goto("/workspace/connections");
+  await expect(page.getByRole("heading", { name: "环境与接入", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "添加事件来源" })).toHaveCount(0);
+  expect(calls.every(call => call.method === "GET")).toBe(true);
+});
+
+
+test("项目列表不可用时子导航仍保留深链接项目", async ({ page }) => {
+  await fixture(page);
+  await page.route("**/api/memory/projects", route => route.fulfill({ status: 503, json: { error: "unavailable" } }));
+  await page.goto("/workspace/memory?project=demo");
+  const nav = page.getByRole("navigation", { name: "记忆导航" });
+  const hooks = nav.getByRole("link", { name: "Hook 与事件", exact: true });
+  await expect(hooks).toHaveAttribute("href", "/workspace/memory/hooks?project=demo");
+  await hooks.click();
+  await expect(page).toHaveURL(/\/workspace\/memory\/hooks\?project=demo$/);
+  await expect(nav.getByRole("link", { name: "记忆库", exact: true })).toHaveAttribute("href", "/workspace/memory?project=demo");
+});
+
+for (const [code, message] of [
+  ["provider_upstream_request_failed", "向量或模型网关未能完成上游请求"],
+  ["engine_tokenizer_cache_missing", "本机分词资源缺失或校验失败"],
+  ["engine_cognify_failed", "记忆引擎处理失败"],
+  ["private-source-do-not-render", "处理结果未知"],
+]) {
+  test(`索引失败显示安全诊断并保留未知用量：${code}`, async ({ page }) => {
+    const { calls } = await fixture(page);
+    await page.route("**/api/memory/projects/demo/engine/*", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ state: "unknown", accounting: { failure_code: code, reserved_tokens: 100, calls: [{ actual_tokens: null }] } }) }));
+    await page.goto("/workspace/memory?project=demo&memory=memory-1");
+    await page.getByRole("button", { name: "确认经验", exact: true }).click();
+    await expect(page.getByRole("button", { name: "确认经验", exact: true })).toHaveCount(0);
+    await page.getByText("适用范围与索引", { exact: true }).click();
+    await page.getByRole("button", { name: "建立索引" }).click();
+    await expect(page.getByRole("status").filter({ hasText: message })).toBeVisible();
+    await expect(page.getByText(/已知用量 0 tokens，仍有未知用量/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "建立索引" })).toBeDisabled();
+    await expect(page.getByText("private-source-do-not-render")).toHaveCount(0);
+    expect(calls.filter(c => c.path.endsWith("/engine"))).toHaveLength(1);
+  });
+}

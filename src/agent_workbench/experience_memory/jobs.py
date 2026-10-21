@@ -144,7 +144,8 @@ class MemoryJobs(RunStore):
         with self._transaction(write=True) as c:
             self._owner(c, project_id, lease)
             if c.exec_driver_sql(
-                "SELECT 1 FROM memory_calls WHERE job_id=? AND state!='received' LIMIT 1",
+                "SELECT 1 FROM memory_calls WHERE job_id=? AND state!='received' AND "
+                "recovered_by IS NULL LIMIT 1",
                 (lease.job_id,),
             ).first():
                 raise StoreError("usage_unsettled")
@@ -182,8 +183,21 @@ class MemoryJobs(RunStore):
         call_id: str,
         kind: Literal["llm", "embedding"],
         tokens: int,
+        *,
+        embedding_digest: str | None = None,
+        retry_group: str | None = None,
     ) -> CallReceipt:
         key(call_id)
+        if retry_group is not None:
+            key(retry_group)
+        if embedding_digest is not None and (
+            kind != "embedding"
+            or len(embedding_digest) != 64
+            or any(c not in "0123456789abcdef" for c in embedding_digest)
+        ):
+            raise StoreError("invalid_retry")
+        if retry_group is not None and embedding_digest is None:
+            raise StoreError("invalid_retry")
         if kind not in ("llm", "embedding") or type(tokens) is not int or not 1 <= tokens <= 65536:
             raise StoreError("invalid_budget")
         with self._transaction(write=True) as c:
@@ -201,23 +215,59 @@ class MemoryJobs(RunStore):
                 .first()
             )
             if prior:
-                if prior["kind"] != kind or prior["reserved_tokens"] != tokens:
+                if (
+                    prior["kind"] != kind
+                    or prior["reserved_tokens"] != tokens
+                    or prior["request_digest"] != embedding_digest
+                    or prior["retry_group"]
+                    != ((retry_group or call_id) if embedding_digest else None)
+                ):
                     raise StoreError("idempotency_conflict")
                 return self._call(prior)
-            if c.exec_driver_sql(
-                "SELECT 1 FROM memory_calls WHERE job_id=? AND state!='received' LIMIT 1",
-                (lease.job_id,),
-            ).first():
-                raise StoreError("usage_unsettled")
+            pending = (
+                c.exec_driver_sql(
+                    "SELECT * FROM memory_calls WHERE job_id=? AND state!='received' "
+                    "AND recovered_by IS NULL",
+                    (lease.job_id,),
+                )
+                .mappings()
+                .all()
+            )
+            if retry_group is None:
+                if pending:
+                    raise StoreError("usage_unsettled")
+            elif (
+                not pending
+                or len(pending) >= 3
+                or any(
+                    row["kind"] != "embedding"
+                    or row["state"] != "unknown"
+                    or row["failure_code"] != "provider_upstream_request_failed"
+                    or row["request_digest"] != embedding_digest
+                    or row["retry_group"] != retry_group
+                    for row in pending
+                )
+                or not any(row["call_id"] == retry_group for row in pending)
+            ):
+                raise StoreError("invalid_retry")
             count = c.exec_driver_sql(
                 "SELECT count(*) FROM memory_calls WHERE job_id=? AND kind=?", (lease.job_id, kind)
             ).scalar_one()
             if count >= (6 if kind == "llm" else 40) or job["tokens"] + tokens > 100000:
                 raise StoreError("budget_exceeded")
             c.exec_driver_sql(
-                "INSERT INTO memory_calls(job_id,call_id,kind,reserved_tokens,state) "
-                "VALUES(?,?,?,?,'reserved')",
-                (lease.job_id, call_id, kind, tokens),
+                "INSERT INTO "
+                "memory_calls(job_id,call_id,kind,reserved_tokens,state,"
+                "retry_group,request_digest) "
+                "VALUES(?,?,?,?,'reserved',?,?)",
+                (
+                    lease.job_id,
+                    call_id,
+                    kind,
+                    tokens,
+                    (retry_group or call_id) if embedding_digest else None,
+                    embedding_digest,
+                ),
             )
             c.exec_driver_sql(
                 "UPDATE memory_jobs SET tokens=tokens+? WHERE job_id=?", (tokens, lease.job_id)
@@ -292,6 +342,54 @@ class MemoryJobs(RunStore):
                 state=state,
                 reserved_tokens=row["reserved_tokens"],
                 actual_tokens=actual_tokens,
+            )
+
+    def resolve_embedding_retries(self, project_id: str, lease: Lease, call_id: str) -> None:
+        """Called only after validating the returned vector, never to invent a bill."""
+        with self._transaction(write=True) as c:
+            self._owner(c, project_id, lease)
+            self._authorize_call(c, project_id, lease)
+            row = one(
+                c,
+                "SELECT * FROM memory_calls WHERE job_id=? AND call_id=?",
+                lease.job_id,
+                key(call_id),
+            )
+            if (
+                row["kind"] != "embedding"
+                or row["state"] != "received"
+                or row["actual_tokens"] is None
+            ):
+                raise StoreError("invalid_retry")
+            if row["retry_group"] is not None:
+                c.exec_driver_sql(
+                    "UPDATE memory_calls SET recovered_by=? WHERE job_id=? AND retry_group=? "
+                    "AND request_digest=? AND state='unknown' AND "
+                    "failure_code='provider_upstream_request_failed'",
+                    (call_id, lease.job_id, row["retry_group"], row["request_digest"]),
+                )
+
+    def record_embedding_failure(self, project_id: str, lease: Lease, call_id: str) -> None:
+        """Known gateway HTTP failure, unknown billing. Only the same read may retry."""
+        with self._transaction(write=True) as c:
+            self._owner(c, project_id, lease, current=False)
+            row = one(
+                c,
+                "SELECT * FROM memory_calls WHERE job_id=? AND call_id=?",
+                lease.job_id,
+                key(call_id),
+            )
+            if (
+                row["kind"] != "embedding"
+                or row["retry_group"] is None
+                or row["state"] != "reserved"
+            ):
+                raise StoreError("invalid_retry")
+            c.exec_driver_sql(
+                "UPDATE memory_calls SET "
+                "state='unknown',failure_code='provider_upstream_request_failed' "
+                "WHERE job_id=? AND call_id=?",
+                (lease.job_id, call_id),
             )
 
     def job_status(self, project_id: str, job_id: str) -> str:

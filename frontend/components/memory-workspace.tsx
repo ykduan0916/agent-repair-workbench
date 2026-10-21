@@ -6,6 +6,7 @@ import { PageHeader } from "./ui/page-header";
 import { useConfirm } from "./ui/confirm-dialog";
 import CapabilityBadge from "./capability-badge";
 import { OverviewPager, ProjectBar, useMemoryProject, type ProjectContext } from "./memory/project-context";
+import { MemoryNavigation } from "./memory/navigation";
 import { MemoryEditor } from "./memory/memory-editor";
 import { kindLabels, stateLabels, memorySchema, safeMessage, memoryRequest, newRequest, projectPath, type Memory } from "../lib/memory";
 
@@ -22,23 +23,24 @@ export default function MemoryWorkspace() {
   function choose(id: string) { setSelected(id); setCreating(false); const url = new URL(location.href); url.searchParams.set("memory", id); history.replaceState(null, "", url); requestAnimationFrame(() => detail.current?.focus()); }
   function close() { setSelected(""); setCreating(false); const url = new URL(location.href); url.searchParams.delete("memory"); history.replaceState(null, "", url); (list.current?.querySelector<HTMLButtonElement>(`button[data-memory-id="${CSS.escape(selected)}"]`) ?? list.current?.querySelector<HTMLButtonElement>("button"))?.focus(); }
   return <div className="memory-page">
-    <PageHeader title="项目经验" description="核对来源、确认经验，并决定哪些内容可以用于后续排查。" badge={<CapabilityBadge section="memory" />} />
+    <PageHeader title="记忆" description="核对来源、确认经验，并决定哪些内容可以用于后续排查。" badge={<CapabilityBadge section="memory" />} />
+    <MemoryNavigation current="library" project={context.project} />
     <ProjectBar context={context} />
     {context.error && <p className="memory-error" role="alert">{context.error}</p>}
     {context.loading && <p role="status" className="muted">正在读取项目记录…</p>}
-    {!context.loading && !context.project && <div className="memory-empty"><h2>先创建一个项目</h2><p>项目用于隔离经验与事件来源。创建后，在环境与接入中添加来源。</p></div>}
+    {!context.loading && !context.project && <div className="memory-empty"><h2>先创建一个项目</h2><p>项目用于隔离经验与事件来源。创建后，在 Hook 与事件中添加来源。</p></div>}
     {context.project && context.overview && <>
       <div className="memory-toolbar">
         <label>状态<select value={state} onChange={e => setState(e.target.value)}><option value="">全部状态</option>{Object.entries(stateLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
         <label>类型<select value={kind} onChange={e => setKind(e.target.value)}><option value="">全部类型</option>{Object.entries(kindLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
         <label>工具<select value={tool} onChange={e => setTool(e.target.value)}><option value="">全部工具</option>{[...new Set(all.flatMap(m => m.content ? [m.content.tool_id] : []))].map(t => <option key={t}>{t}</option>)}</select></label>
         <button className="btn btn-primary btn-sm" disabled={context.busy || !context.overview.events.length} onClick={() => { setSelected(""); setCreating(true); requestAnimationFrame(() => detail.current?.focus()); }}>新增经验</button>
-        <Link className="link small" href={`/workspace/connections?project=${context.project}#memory`}>管理事件来源</Link>
+        <Link className="link small" href={`/workspace/memory/hooks?project=${encodeURIComponent(context.project)}`}>管理事件来源</Link>
       </div>
       <p className="small muted">筛选当前页的经验；翻页查看更早的记录。</p><OverviewPager context={context} section="memories" label="经验" />
       <div className="memory-layout" data-detail={Boolean(memory || creating)}>
         <div className="memory-list pane" ref={list} aria-label="经验列表">
-          {rows.length === 0 ? <div className="memory-empty"><h2>{all.length ? "没有符合条件的经验" : "还没有经验"}</h2><p>{all.length ? "更换筛选条件，或新增一条经验。" : "先在接入页接收事件，再从事件补充故障、修复方法或项目约束。"}</p></div> : rows.map(m => <button key={m.receipt.resource_id} className="memory-list-row" data-memory-id={m.receipt.resource_id} aria-pressed={selected === m.receipt.resource_id} onClick={() => choose(m.receipt.resource_id)}>
+          {rows.length === 0 ? <div className="memory-empty"><h2>{all.length ? "没有符合条件的经验" : "还没有经验"}</h2><p>{all.length ? "更换筛选条件，或新增一条经验。" : "先在 Hook 与事件中接收事件，再从事件补充故障、修复方法或项目约束。"}</p></div> : rows.map(m => <button key={m.receipt.resource_id} className="memory-list-row" data-memory-id={m.receipt.resource_id} aria-pressed={selected === m.receipt.resource_id} onClick={() => choose(m.receipt.resource_id)}>
             <span className="memory-row-title">{m.content?.title ?? "已删除的经验"}</span><span className="memory-state">{stateLabels[m.receipt.state]}</span>
             <span className="muted small" title={m.content?.source_version}>{kindLabels[m.kind]}{m.content ? ` · ${m.content.tool_id} · 版本 ${m.content.source_version.length > 16 ? `${m.content.source_version.slice(0, 12)}…` : m.content.source_version}` : " · 正文已清除"}</span>
           </button>)}

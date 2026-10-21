@@ -57,7 +57,7 @@ for(const checkOnly of [false,true])test(`独立评审：分析提交${checkOnly
 });
 
 test('独立评审：Agent正文外发单独授权，改变用途需要重新确认',async({page})=>{
- const {writes}=await fixture(page);await page.goto('/workspace/connections?project=demo#memory');const source=page.getByRole('region',{name:'来源 local',exact:true});await source.getByRole('button',{name:'管理来源'}).click();await source.getByText('内容外发授权',{exact:true}).click();await source.getByLabel('我允许所选内容用于上述外部服务调用').check();await source.getByLabel('用途').selectOption('agent_context');await expect(source.getByRole('button',{name:'保存授权'})).toBeDisabled();expect(writes).toEqual([]);await source.getByLabel('我允许所选内容用于上述外部服务调用').check();await source.getByRole('button',{name:'保存授权'}).click();await expect.poll(()=>writes.length).toBe(1);expect(writes[0].body).toMatchObject({expected_version:0,grant:{purpose:'agent_context',content_type:'repair_experience',connection_id:'local',enabled:true}});
+ const {writes}=await fixture(page);await page.goto('/workspace/memory/hooks?project=demo');const source=page.getByRole('region',{name:'来源 local',exact:true});await source.getByRole('button',{name:'管理来源'}).click();await source.getByText('内容外发授权',{exact:true}).click();await source.getByLabel('我允许所选内容用于上述外部服务调用').check();await source.getByLabel('用途').selectOption('agent_context');await expect(source.getByRole('button',{name:'保存授权'})).toBeDisabled();expect(writes).toEqual([]);await source.getByLabel('我允许所选内容用于上述外部服务调用').check();await source.getByRole('button',{name:'保存授权'}).click();await expect.poll(()=>writes.length).toBe(1);expect(writes[0].body).toMatchObject({expected_version:0,grant:{purpose:'agent_context',content_type:'repair_experience',connection_id:'local',enabled:true}});
 });
 
 test('候选安全失败码在详情与执行记录可读，不丢弃整条修复',async({page})=>{

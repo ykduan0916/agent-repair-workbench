@@ -25,6 +25,7 @@ from agent_workbench.experience_memory.models import Lease
 from agent_workbench.run_store import StoreError
 
 from .gateway import ERROR, Gateway, Providers
+from .tokenizer_cache import WORKER_FAILURES
 
 
 def private_tree(path: Path) -> None:
@@ -92,6 +93,9 @@ class CogneeRuntime:
             "PATH": "/usr/bin:/bin",
             "HOME": str(root),
             "TMPDIR": str(root),
+            "TIKTOKEN_CACHE_DIR": str(
+                self.python.absolute().parent.parent / "share/awb-tokenizers"
+            ),
             "LANG": "en_US.UTF-8",
             "HF_HUB_OFFLINE": "1",
             "TRANSFORMERS_OFFLINE": "1",
@@ -101,6 +105,7 @@ class CogneeRuntime:
             "COGNEE_LOG_FILE": "false",
             "CACHE_BACKEND": "sqlite",
             "COGNEE_SKIP_CONNECTION_TEST": "true",
+            "LITELLM_LOCAL_MODEL_COST_MAP": "true",
             "LLM_PROVIDER": "custom",
             "LLM_MODEL": "openai/" + self.providers.model_name,
             "LLM_ENDPOINT": endpoint,
@@ -212,7 +217,10 @@ class CogneeRuntime:
                 raise StoreError("engine_failed")
             result = json.loads(output_path.read_bytes())
             if not isinstance(result, dict) or result.get("status") != "ready":
-                raise StoreError("engine_failed")
+                code = result.get("failure_code") if isinstance(result, dict) else None
+                raise StoreError(
+                    code if isinstance(code, str) and code in WORKER_FAILURES else "engine_failed"
+                )
             if result.get("cache") != "sqlite" or result.get("engine_version") != "1.6.5":
                 raise StoreError("engine_contract_changed")
             return result
@@ -275,7 +283,8 @@ class CogneeRuntime:
                     lease,
                     error.code
                     if isinstance(error, StoreError)
-                    and error.code in ("engine_stopped", "engine_contract_changed")
+                    and error.code
+                    in WORKER_FAILURES | {"engine_stopped", "engine_contract_changed"}
                     else "engine_failed",
                 )
                 self.store.cancel_job(project, job_id)
@@ -296,6 +305,7 @@ class CogneeRuntime:
         query = validate(Query, query)
         cancel = cancel or threading.Event()
         job_id = None
+        lease = None
         try:
             with self.writer() as fd:
                 job_id = self.store.prepare_search(
@@ -335,6 +345,8 @@ class CogneeRuntime:
                 )
         except StoreError as error:
             if job_id is not None:
+                if lease is not None and error.code in WORKER_FAILURES:
+                    self.store.record_failure(project, lease, error.code)
                 self.store.cancel_job(project, job_id)
             return Retrieval(
                 status="limited"

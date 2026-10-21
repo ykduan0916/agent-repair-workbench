@@ -16,8 +16,12 @@ async function routes(page: Page, populated = false) {
   const state = { value: populated ? detail(ID, true) : null as ReturnType<typeof detail> | null, starts: [] as Record<string, string>[], stops: 0, lost: false };
   await page.route("**/api/analysis-runs**", async route => {
     const req = route.request(), path = new URL(req.url()).pathname;
+    // Memory reads must never enter the task-creation branch or increment starts.
+    if (req.method() === "GET" && /^\/api\/analysis-runs\/[^/]+\/memory$/.test(path)) return route.fulfill({ json: { state: "disabled", references: [], uses: [] } });
     if (path.endsWith("/catalog")) return route.fulfill({ json: { ...catalog, slot: state.value && !state.value.summary.finished_at ? { status: "busy", task_id: state.value.summary.task_id } : catalog.slot } });
     if (path.endsWith("/cancel")) { state.stops++; const id = state.value!.summary.task_id; state.value = detail(id, true); return route.fulfill({ json: { task_id: id, status: "cancel_requested" } }); }
+    expect(req.method(), `Unexpected analysis request: ${path}`).toBe("POST");
+    expect(path).toBe("/api/analysis-runs");
     const request = req.postDataJSON(); state.starts.push(request);
     const reused = !!state.value;
     state.value ??= detail(request.request_id);

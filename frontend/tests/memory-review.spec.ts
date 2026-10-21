@@ -48,7 +48,7 @@ test("评审：关闭详情后键盘焦点回到原选择而非首条", async ({
 });
 
 test("评审：当前事件页没有旧来源不能声称从未收到事件", async ({ page }) => {
-  await reviewFixture(page); await page.goto("/workspace/connections?project=demo#memory");
+  await reviewFixture(page); await page.goto("/workspace/memory/hooks?project=demo");
   const source = page.getByRole("region", { name: "来源 old-source", exact: true });
   await expect(source).not.toContainText("等待首条事件");
 });
@@ -62,7 +62,7 @@ for (const target of ["policy", "grants"] as const) {
       await page.getByText("适用范围与索引", { exact: true }).click();
       await expect(page.getByRole("button", { name: "保存适用策略" })).toBeDisabled();
     } else {
-      await page.goto("/workspace/connections?project=demo#memory");
+      await page.goto("/workspace/memory/hooks?project=demo");
       await page.getByRole("button", { name: "管理来源" }).click();
       await page.getByText("内容外发授权", { exact: true }).click();
       await page.getByLabel("我允许所选内容用于上述外部服务调用").check();

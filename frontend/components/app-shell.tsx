@@ -16,7 +16,7 @@ export const workspaceNav = [
   { href: "/workspace/tasks", label: "复现", icon: Layers3 },
   { href: "/workspace/diagnosis", label: "分析", icon: ScanSearch },
   { href: "/workspace/repairs", label: "修复", icon: GitCompareArrows },
-  { href: "/workspace/memory", label: "项目经验", icon: BookOpen },
+  { href: "/workspace/memory", label: "记忆", icon: BookOpen },
 ] as const;
 const setupNav = [{ href: "/workspace/connections", label: "环境与接入", icon: Plug }] as const;
 
@@ -34,7 +34,7 @@ function Sidebar({ open, hidden, onNavigate }: { open: boolean; hidden: boolean;
   const allow = useAllowNavigation();
   const guard = (event: { preventDefault: () => void }) => { if (!allow()) event.preventDefault(); else onNavigate(); };
   const link = ({ href, label, icon: Icon }: { href: string; label: string; icon: typeof Home }) =>
-    <Link key={href} href={href} className="side-link" onNavigate={guard} aria-current={pathname === href ? "page" : undefined}>
+    <Link key={href} href={href} className="side-link" onNavigate={guard} aria-current={(pathname === href || (href === "/workspace/memory" && pathname.startsWith(`${href}/`))) ? "page" : undefined}>
       <Icon size={16} aria-hidden="true" />{label}
     </Link>;
   // A closed drawer is off-screen; inert keeps its links out of the Tab order and the accessibility tree.

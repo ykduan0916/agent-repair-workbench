@@ -1,6 +1,7 @@
 """M2-R per-wire loopback proxy with durable reservations and safe failure bodies."""
 
 import asyncio
+import hashlib
 import json
 import math
 import secrets
@@ -133,16 +134,53 @@ class Gateway:
                 if len(wire) > 65536:
                     raise StoreError("request_limit")
                 tokens = len(wire) + 1024 + (4096 if kind == "llm" else 0)
-                proposed_id = uuid4().hex
-                receipt = self.store.reserve_call(
-                    self.project, self.lease, proposed_id, kind, tokens
-                )
-                if not receipt.admitted:
-                    raise StoreError("request_already_reserved")
-                call_id = proposed_id
-                failure = "provider_transport_error"
-                status, content = asyncio.run(self.request(endpoint, api_key, payload))
-                failure = "provider_http_error" if status != 200 else "usage_missing"
+                group = None
+                digest = hashlib.sha256(wire).hexdigest() if kind == "embedding" else None
+                for attempt in range(3):
+                    if self.stopped.is_set() or time.monotonic() >= self.deadline:
+                        raise StoreError("engine_stopped")
+                    proposed_id = uuid4().hex
+                    receipt = self.store.reserve_call(
+                        self.project,
+                        self.lease,
+                        proposed_id,
+                        kind,
+                        tokens,
+                        embedding_digest=digest,
+                        retry_group=group,
+                    )
+                    if not receipt.admitted:
+                        raise StoreError("request_already_reserved")
+                    call_id = proposed_id
+                    failure = "provider_transport_error"
+                    status, content = asyncio.run(self.request(endpoint, api_key, payload))
+                    failure = "provider_http_error" if status != 200 else "usage_missing"
+                    if status == 500:
+                        try:
+                            error_body = json.loads(content)
+                        except (ValueError, RecursionError):
+                            error_body = None
+                        provider_error = (
+                            error_body.get("error") if isinstance(error_body, dict) else None
+                        )
+                        if (
+                            isinstance(provider_error, dict)
+                            and provider_error.get("type") == "new_api_error"
+                            and provider_error.get("code") == "do_request_failed"
+                        ):
+                            failure = "provider_upstream_request_failed"
+
+                    if kind != "embedding" or failure != "provider_upstream_request_failed":
+                        break
+                    self.store.record_embedding_failure(self.project, self.lease, call_id)
+                    self.store.record_failure(self.project, self.lease, failure)
+                    group = group or call_id
+                    call_id = None
+                    if attempt == 2:
+                        raise StoreError("embedding_retries_exhausted")
+                    self.stopped.wait(
+                        min(0.5 * (attempt + 1), max(0, self.deadline - time.monotonic()))
+                    )
                 actual = None
                 if status == 200:
                     parsed = json.loads(content)
@@ -152,6 +190,7 @@ class Gateway:
                         actual = total
                 if actual is not None and actual > tokens:
                     failure = "usage_overrun"
+                assert call_id is not None
                 receipt = self.store.settle_call(self.project, self.lease, call_id, actual)
                 call_id = None
                 if receipt.state != "received" or self.stopped.is_set():
@@ -175,6 +214,7 @@ class Gateway:
                             )
                         ):
                             raise StoreError("embedding_invalid")
+                    self.store.resolve_embedding_retries(self.project, self.lease, proposed_id)
                 failure = "authority_changed"
                 self.store.snapshot(self.project, self.lease)
                 return 200, content

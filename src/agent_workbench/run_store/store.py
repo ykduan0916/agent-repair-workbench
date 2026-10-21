@@ -46,7 +46,7 @@ from .schema import (
     web_requests,
 )
 
-REVISION = "0014_agent_memory"
+REVISION = "0015_embedding_retries"
 MAX_REPORT = 1_048_576
 TERMINAL = ("succeeded", "failed", "cancelled", "outcome_unknown")
 EXECUTORS = ("absent", "running", "stopped", "unavailable", "mismatch")
@@ -174,6 +174,7 @@ class RunStore:
                 [("0011_memory_authority",)],
                 [("0012_memory_engine",)],
                 [("0013_web_memory",)],
+                [("0014_agent_memory",)],
             )
         )
         if not supported or not {"runs", "attempts", "events", "artifacts"} <= names:
@@ -192,6 +193,7 @@ class RunStore:
                 [("0011_memory_authority",)],
                 [("0012_memory_engine",)],
                 [("0013_web_memory",)],
+                [("0014_agent_memory",)],
                 [(REVISION,)],
             )
             and "web_requests" not in names
@@ -211,6 +213,7 @@ class RunStore:
                 [("0011_memory_authority",)],
                 [("0012_memory_engine",)],
                 [("0013_web_memory",)],
+                [("0014_agent_memory",)],
                 [(REVISION,)],
             )
             and not {"analysis_summaries", "analysis_events", "analysis_execution_links"} <= names
@@ -228,6 +231,7 @@ class RunStore:
                 [("0011_memory_authority",)],
                 [("0012_memory_engine",)],
                 [("0013_web_memory",)],
+                [("0014_agent_memory",)],
                 [(REVISION,)],
             )
             and not {"repair_candidate_decisions", "repair_candidate_decision_events"} <= names
@@ -246,6 +250,7 @@ class RunStore:
                 [("0011_memory_authority",)],
                 [("0012_memory_engine",)],
                 [("0013_web_memory",)],
+                [("0014_agent_memory",)],
                 [(REVISION,)],
             )
             and not {"repair_tasks", "repair_requests", "repair_candidates", "repair_events"}
@@ -264,6 +269,7 @@ class RunStore:
                 [("0011_memory_authority",)],
                 [("0012_memory_engine",)],
                 [("0013_web_memory",)],
+                [("0014_agent_memory",)],
                 [(REVISION,)],
             )
             and not {"repair_comparisons", "repair_comparison_attempts"} <= names
@@ -278,6 +284,7 @@ class RunStore:
             [("0011_memory_authority",)],
             [("0012_memory_engine",)],
             [("0013_web_memory",)],
+            [("0014_agent_memory",)],
             [(REVISION,)],
         ):
             if not {"repair_reproductions", "repair_execution_identities"} <= names:
@@ -300,6 +307,7 @@ class RunStore:
             [("0011_memory_authority",)],
             [("0012_memory_engine",)],
             [("0013_web_memory",)],
+            [("0014_agent_memory",)],
             [(REVISION,)],
         ):
             if "web_analysis_requests" not in names:
@@ -316,25 +324,31 @@ class RunStore:
             [("0011_memory_authority",)],
             [("0012_memory_engine",)],
             [("0013_web_memory",)],
+            [("0014_agent_memory",)],
             [(REVISION,)],
         ):
             from .migrations.versions.v0011_memory_authority import TABLES as AUTHORITY_TABLES
 
             if not set(AUTHORITY_TABLES) <= names:
                 raise StoreError("schema_incompatible")
-        if revisions in ([("0012_memory_engine",)], [("0013_web_memory",)], [(REVISION,)]):
+        if revisions in (
+            [("0012_memory_engine",)],
+            [("0013_web_memory",)],
+            [("0014_agent_memory",)],
+            [(REVISION,)],
+        ):
             from .migrations.versions.v0012_memory_engine import TABLES as ENGINE_TABLES
 
             if not set(ENGINE_TABLES) <= names:
                 raise StoreError("schema_incompatible")
 
-        if revisions in ([("0013_web_memory",)], [(REVISION,)]):
+        if revisions in ([("0013_web_memory",)], [("0014_agent_memory",)], [(REVISION,)]):
             from .migrations.versions.v0013_web_memory import TABLES as WEB_MEMORY_TABLES
 
             if not set(WEB_MEMORY_TABLES) <= names:
                 raise StoreError("schema_incompatible")
 
-        if revisions == [(REVISION,)]:
+        if revisions in ([("0014_agent_memory",)], [(REVISION,)]):
             from .migrations.versions.v0014_agent_memory import TABLES as AGENT_MEMORY_TABLES
 
             if not set(AGENT_MEMORY_TABLES) <= names:
@@ -345,6 +359,7 @@ class RunStore:
             [("0011_memory_authority",)],
             [("0012_memory_engine",)],
             [("0013_web_memory",)],
+            [("0014_agent_memory",)],
             [(REVISION,)],
         ):
             if "web_repair_requests" not in names:
@@ -365,6 +380,11 @@ class RunStore:
                 )
             }
             if any(actual.get(name) != sql for name, sql in REPAIR_TRIGGERS.items()):
+                raise StoreError("schema_incompatible")
+
+        if revisions == [(REVISION,)]:
+            columns = {column["name"] for column in inspect(connection).get_columns("memory_calls")}
+            if not {"retry_group", "request_digest", "failure_code", "recovered_by"} <= columns:
                 raise StoreError("schema_incompatible")
 
     @staticmethod

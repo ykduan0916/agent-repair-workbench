@@ -569,3 +569,35 @@ def test_factory_config_only_can_degrade_without_sending(tmp_path, code, continu
     assert report["job_id"] is None
     assert report["state"] == ("done" if continues else "unknown")
     store.close()
+
+
+def test_recovered_embedding_result_allows_context_with_unknown_cost(state):
+    store, _ = state
+    item = memory(store)
+    index(store, item)
+    grant(store)
+    task = str(uuid4())
+    q = query().model_copy(update={"event_id": "recovered-query"})
+    store.begin_task("repair", task, MemoryBinding(project_id="p", connection_id="c"), q)
+    job = store.prepare_search("p", q, profile_digest=providers().embedding_fingerprint)
+    store.attach_job("repair", task, job)
+    lease = store.claim_job("p", job_id=job)
+    store.reserve_call("p", lease, "first", "embedding", 1000, embedding_digest="a" * 64)
+    store.record_embedding_failure("p", lease, "first")
+    store.reserve_call(
+        "p", lease, "second", "embedding", 1000, embedding_digest="a" * 64, retry_group="first"
+    )
+    store.settle_call("p", lease, "second", 8)
+    store.resolve_embedding_retries("p", lease, "second")
+    snapshot = store.snapshot("p", lease)
+    evidence = [(r["root_id"], r["dataset_id"], r["data_id"]) for r in snapshot["refs"]]
+    refs = store.references("p", lease, evidence)
+    store.finish_job("p", lease, succeeded=True)
+    assert store.finish_task(
+        "repair", task, Retrieval(status="available", reason="matched", job_id=job, references=refs)
+    )
+    assert store.prepare_context("repair", task, "diagnosis").references
+    assert not store.prepare_context("repair", task, "verification").references
+    usage = store.task_usage("repair", task)["accounting"]
+    assert usage["reserved_tokens"] == 2000
+    assert any(c["actual_tokens"] is None for c in usage["calls"])

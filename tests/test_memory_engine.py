@@ -523,7 +523,7 @@ def test_review_0011_upgrade_preserves_populated_authority(tmp_path):
         after = {table: c.exec_driver_sql(f"SELECT * FROM {table}").all() for table in TABLES}
         assert (
             c.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
-            == "0014_agent_memory"
+            == "0015_embedding_retries"
         )
     assert before == after
     store.close()
@@ -547,3 +547,187 @@ def test_review_failure_reason_whitelist_scope_and_first_reason(state):
     bill = store.accounting("p", job)
     assert bill["failure_code"] == "embedding_invalid"
     assert bill["calls"][0]["actual_tokens"] == 20
+
+
+@pytest.mark.parametrize(
+    "error,expected",
+    [
+        (
+            {"type": "new_api_error", "code": "do_request_failed", "message": "private-key"},
+            "provider_upstream_request_failed",
+        ),
+        (
+            {"type": "other", "code": "do_request_failed", "message": "private-key"},
+            "provider_http_error",
+        ),
+    ],
+)
+def test_gateway_classifies_upstream_failure_with_bounded_retry(
+    state, monkeypatch, error, expected
+):
+    import json
+
+    store, _ = state
+    lease = store.claim_job("p", job_id=prepare_index(store, "p", memory(store).resource_id))
+    gate = Gateway(store, "p", lease, providers(), time.monotonic() + 10)
+    calls = []
+
+    async def response(*args):
+        calls.append(1)
+        return 500, json.dumps({"error": error}).encode()
+
+    monkeypatch.setattr(gate, "request", response)
+    for _ in range(2):
+        status, body = gate.forward("/v1/embeddings", b'{"input":"synthetic"}')
+        assert status == 503 and b"private-key" not in body
+    assert calls == [1] * (3 if expected == "provider_upstream_request_failed" else 1)
+    bill = store.accounting("p", lease.job_id)
+    assert bill["failure_code"] == expected
+    assert bill["calls"][0]["actual_tokens"] is None
+    assert "private-key" not in json.dumps(bill)
+
+
+@pytest.mark.parametrize("failure", ["engine_cognify_failed", "engine_tokenizer_cache_missing"])
+def test_runtime_index_persists_safe_worker_failure(state, tmp_path, monkeypatch, failure):
+    from agent_workbench.providers.cognee.tokenizer_cache import WORKER_FAILURES
+
+    assert failure in WORKER_FAILURES
+    store, _ = state
+    runtime = CogneeRuntime(store, tmp_path / "engine", Path(__file__), providers())
+    jobs = []
+
+    def broken(*args):
+        raise StoreError(failure)
+
+    monkeypatch.setattr(runtime, "_worker", broken)
+    with pytest.raises(StoreError, match="index_failed"):
+        runtime.index("p", memory(store).resource_id, on_job=jobs.append)
+    assert store.accounting("p", jobs[0])["failure_code"] == failure
+    assert store.accounting("p", jobs[0])["calls"] == []
+
+
+def test_embedding_retry_success_keeps_unknown_bill_and_allows_finish(state, monkeypatch):
+    import json
+
+    store, _ = state
+    lease = store.claim_job("p", job_id=prepare_index(store, "p", memory(store).resource_id))
+    gate = Gateway(store, "p", lease, providers(), time.monotonic() + 10)
+    calls = []
+
+    async def response(*args):
+        calls.append(args[-1])
+        if len(calls) == 1:
+            return 500, b'{"error":{"type":"new_api_error","code":"do_request_failed"}}'
+        return 200, json.dumps(
+            {"usage": {"total_tokens": 4}, "data": [{"embedding": [0.1] * 1024}]}
+        ).encode()
+
+    monkeypatch.setattr(gate, "request", response)
+    assert gate.forward("/v1/embeddings", b'{"input":"synthetic"}')[0] == 200
+    assert len(calls) == 2 and calls[0] == calls[1]
+    store.finish_job("p", lease, succeeded=True)
+    bill = store.accounting("p", lease.job_id)
+    assert bill["state"] == "done"
+    failed = next(c for c in bill["calls"] if c["state"] == "unknown")
+    succeeded = next(c for c in bill["calls"] if c["state"] == "received")
+    assert failed["actual_tokens"] is None and failed["recovered_by"] == succeeded["call_id"]
+    assert bill["reserved_tokens"] == sum(c["reserved_tokens"] for c in bill["calls"])
+
+
+@pytest.mark.parametrize(
+    "change", ["cancel", "revoke", "deadline", "budget", "bad_vector", "timeout"]
+)
+def test_embedding_retry_interruption_and_invalid_response_never_publish(
+    state, monkeypatch, change
+):
+    import json
+
+    store, _ = state
+    lease = store.claim_job("p", job_id=prepare_index(store, "p", memory(store).resource_id))
+    gate = Gateway(store, "p", lease, providers(), time.monotonic() + 10)
+    calls = []
+
+    async def response(*args):
+        calls.append(1)
+        if len(calls) == 1:
+            if change == "cancel":
+                gate.stopped.set()
+            if change == "revoke":
+                store.set_connection("p", "c", 1, enabled=False)
+            if change == "deadline":
+                gate.deadline = time.monotonic() - 1
+            if change == "budget":
+                with store._transaction(write=True) as c:
+                    c.exec_driver_sql(
+                        "UPDATE memory_jobs SET tokens=99999 WHERE job_id=?", (lease.job_id,)
+                    )
+            return 500, b'{"error":{"type":"new_api_error","code":"do_request_failed"}}'
+        if change == "timeout":
+            raise TimeoutError("private")
+        return 200, json.dumps(
+            {"usage": {"total_tokens": 4}, "data": [{"embedding": [0.1]}]}
+        ).encode()
+
+    monkeypatch.setattr(gate, "request", response)
+    assert gate.forward("/v1/embeddings", b'{"input":"synthetic"}')[0] == 503
+    assert len(calls) == (2 if change in {"bad_vector", "timeout"} else 1)
+    bill = store.accounting("p", lease.job_id)
+    assert all(c["recovered_by"] is None for c in bill["calls"])
+    with pytest.raises(StoreError):
+        store.finish_job("p", lease, succeeded=True)
+
+
+def test_embedding_retry_bound_to_payload_and_three_attempts(state):
+    store, _ = state
+    lease = store.claim_job("p", job_id=prepare_index(store, "p", memory(store).resource_id))
+    store.reserve_call("p", lease, "first", "embedding", 100, embedding_digest="a" * 64)
+    store.record_embedding_failure("p", lease, "first")
+    for digest, group in [("b" * 64, "first"), ("a" * 64, "other")]:
+        with pytest.raises(StoreError, match="invalid_retry"):
+            store.reserve_call(
+                "p", lease, "wrong", "embedding", 100, embedding_digest=digest, retry_group=group
+            )
+    with pytest.raises(StoreError, match="usage_unsettled"):
+        store.reserve_call("p", lease, "unrelated", "llm", 100)
+    for name in ["second", "third"]:
+        store.reserve_call(
+            "p", lease, name, "embedding", 100, embedding_digest="a" * 64, retry_group="first"
+        )
+        store.record_embedding_failure("p", lease, name)
+    with pytest.raises(StoreError, match="invalid_retry"):
+        store.reserve_call(
+            "p", lease, "fourth", "embedding", 100, embedding_digest="a" * 64, retry_group="first"
+        )
+    assert len(store.accounting("p", lease.job_id)["calls"]) == 3
+
+
+def test_retry_migration_preserves_legacy_unknown_and_cannot_downgrade_used_ledger(state):
+    from alembic import command
+
+    store, _ = state
+    lease = store.claim_job("p", job_id=prepare_index(store, "p", memory(store).resource_id))
+    store.reserve_call("p", lease, "legacy", "embedding", 100)
+    store.settle_call("p", lease, "legacy", None)
+    with store._transaction(write=True) as c:
+        command.downgrade(store._migration(c), "0014_agent_memory")
+    store.initialize()
+    bill = store.accounting("p", lease.job_id)
+    assert bill["calls"][0]["actual_tokens"] is None
+    assert bill["calls"][0]["failure_code"] is None
+    assert bill["calls"][0]["recovered_by"] is None
+    assert store.claim_job("p", job_id=lease.job_id) is None
+    next_lease = store.claim_job(
+        "p", job_id=prepare_index(store, "p", memory(store, "next").resource_id)
+    )
+    store.reserve_call("p", next_lease, "first", "embedding", 100, embedding_digest="a" * 64)
+    with pytest.raises(ValueError, match="migration_not_empty"):
+        with store._transaction(write=True) as c:
+            command.downgrade(store._migration(c), "0014_agent_memory")
+
+
+def test_retry_duplicate_receipt_cannot_change_digest(state):
+    store, _ = state
+    lease = store.claim_job("p", job_id=prepare_index(store, "p", memory(store).resource_id))
+    store.reserve_call("p", lease, "first", "embedding", 100, embedding_digest="a" * 64)
+    with pytest.raises(StoreError, match="idempotency_conflict"):
+        store.reserve_call("p", lease, "first", "embedding", 100, embedding_digest="b" * 64)

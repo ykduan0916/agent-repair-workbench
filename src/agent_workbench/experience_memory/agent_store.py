@@ -105,7 +105,8 @@ class AgentMemoryStore(EngineStore):
                 unknown = bool(
                     c.exec_driver_sql(
                         "SELECT 1 FROM memory_calls WHERE job_id=? AND "
-                        "(state!='received' OR actual_tokens IS NULL) LIMIT 1",
+                        "(state!='received' OR actual_tokens IS NULL) AND "
+                        "recovered_by IS NULL LIMIT 1",
                         (row["job_id"],),
                     ).first()
                 )

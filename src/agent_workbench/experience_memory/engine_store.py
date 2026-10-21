@@ -414,6 +414,18 @@ class EngineStore(MemoryStore):
             "engine_failed",
             "engine_stopped",
             "engine_contract_changed",
+            "provider_upstream_request_failed",
+            "engine_tokenizer_cache_missing",
+            "engine_tokenizer_cache_invalid",
+            "engine_tokenizer_failed",
+            "engine_sdk_import_failed",
+            "engine_cache_check_failed",
+            "engine_input_failed",
+            "engine_add_failed",
+            "engine_source_lookup_failed",
+            "engine_cognify_failed",
+            "engine_search_failed",
+            "engine_output_validate_failed",
         }
         if code not in allowed:
             raise StoreError("invalid_failure_code")
@@ -441,7 +453,8 @@ class EngineStore(MemoryStore):
             )
             calls = (
                 c.exec_driver_sql(
-                    "SELECT call_id,kind,state,reserved_tokens,actual_tokens "
+                    "SELECT "
+                    "call_id,kind,state,reserved_tokens,actual_tokens,failure_code,recovered_by "
                     "FROM memory_calls WHERE job_id=?",
                     (job_id,),
                 )

@@ -4,7 +4,13 @@ import { z } from "zod";
 import { MemoryApiError, memoryRequest, newRequest, projectPath, safeMessage, type Memory } from "../../lib/memory";
 import type { ProjectContext } from "./project-context";
 
-const jobSchema = z.object({ state: z.enum(["pending", "running", "done", "unknown"]), reason: z.string().max(128).nullable().optional(), result: z.object({ removed_roots: z.number().int().nonnegative().optional() }).nullable().optional(), accounting: z.object({ reserved_tokens: z.number().int().nonnegative(), calls: z.array(z.object({ actual_tokens: z.number().int().nonnegative().nullable() })).max(100) }).optional() });
+const jobSchema = z.object({ state: z.enum(["pending", "running", "done", "unknown"]), reason: z.string().max(128).nullable().optional(), result: z.object({ removed_roots: z.number().int().nonnegative().optional() }).nullable().optional(), accounting: z.object({ failure_code: z.string().max(128).nullable().optional(), reserved_tokens: z.number().int().nonnegative(), calls: z.array(z.object({ actual_tokens: z.number().int().nonnegative().nullable() })).max(100) }).optional() });
+function failureMessage(code?: string | null): string {
+  if (code === "provider_upstream_request_failed") return "向量或模型网关未能完成上游请求，索引未完成。请检查服务状态；未知用量已保留，不自动重试。";
+  if (code === "engine_tokenizer_cache_missing" || code === "engine_tokenizer_cache_invalid") return "本机分词资源缺失或校验失败，索引未完成。请按部署指南准备资源后重新核对。";
+  if (["engine_tokenizer_failed", "engine_sdk_import_failed", "engine_cache_check_failed", "engine_input_failed", "engine_add_failed", "engine_source_lookup_failed", "engine_cognify_failed", "engine_search_failed", "engine_output_validate_failed"].includes(code ?? "")) return "记忆引擎处理失败，索引未完成。失败阶段已记录，请核对任务记录。";
+  return "处理结果未知，已停止自动重试。请核对任务记录。";
+}
 /** Explicit bounded background work; no write retries after an unknown response. */
 export function EngineControl({ context, memory }: { context: ProjectContext; memory?: Memory }) {
   const [request, setRequest] = useState(""); const [status, setStatus] = useState(""); const [pending, setPending] = useState(false); const [resolved, setResolved] = useState(true); const [usage, setUsage] = useState("");
@@ -16,7 +22,7 @@ export function EngineControl({ context, memory }: { context: ProjectContext; me
     const poll = async () => {
       try { const job = jobSchema.parse(await memoryRequest(`${path}/${request}`, { signal: controller.signal })); if (controller.signal.aborted) return;
         if (job.accounting) { const known = job.accounting.calls.reduce((sum, call) => sum + (call.actual_tokens ?? 0), 0); const incomplete = job.accounting.calls.some(call => call.actual_tokens === null); setUsage(`已知用量 ${known} tokens${incomplete ? "，仍有未知用量" : ""}；预留 ${job.accounting.reserved_tokens} tokens。金额尚无计价依据。`); }
-        if (job.state === "done" || job.state === "unknown") { setStatus(job.state === "done" ? job.result?.removed_roots !== undefined ? `清理完成，移除 ${job.result.removed_roots} 个派生目录。` : "索引已建立。后续检索仍会核对确认状态、授权与适用版本。" : "处理结果未知，已停止自动重试。请核对任务记录。"); setResolved(job.state === "done"); setPending(false); return; }
+        if (job.state === "done" || job.state === "unknown") { setStatus(job.state === "done" ? job.result?.removed_roots !== undefined ? `清理完成，移除 ${job.result.removed_roots} 个派生目录。` : "索引已建立。后续检索仍会核对确认状态、授权与适用版本。" : failureMessage(job.accounting?.failure_code)); setResolved(job.state === "done"); setPending(false); return; }
         setStatus("处理中，离开页面不会重复提交。任务标识保留在技术详情。");
         if (++polls < 100) timer = setTimeout(poll, 2000); else { setStatus("等待已超时，请稍后重新查询。不会重复执行。"); setPending(false); }
       } catch (e) { if (!controller.signal.aborted) { setStatus(safeMessage(e)); setPending(false); } }

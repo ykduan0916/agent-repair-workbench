@@ -97,3 +97,11 @@
 - [网页经验管理与外部事件接入](48-m4-r-web-memory-hooks.md)
 
 - [M3-R：Agent 经验取用与修复草稿](49-m3-r-agent-memory.md)
+
+## 记忆对照评估
+
+- [50 有无记忆的受控对照评估](50-m5-r-memory-evaluation.md)：冻结协议、运行命令、失败及成本口径、同版本局限与后续迁移门槛。
+
+- [记忆模块与 Hook 来源管理](52-ui-09-memory-navigation.md)：UI-09 页面归属、入口兼容与验证。
+
+- [53 REL-03 记忆初始化与向量请求恢复](53-rel-03-memory-provider-recovery.md)

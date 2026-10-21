@@ -10,8 +10,8 @@ export const documentationGroups: readonly DocumentationGroup[] = [
     title: "使用指南",
     description: "安装、启动和每个功能的用法。",
     entries: [
-      { title: "Agent 经验取用与修复草稿", slug: "49-m3-r-agent-memory", summary: "逐次授权参考、用量记录、角色隔离与修复经验保存。" },
       { title: "项目介绍与快速上手", slug: "getting-started", summary: "解决什么问题、一个具体例子，以及第一次检查的命令。" },
+      { title: "Agent 经验取用与修复草稿", slug: "49-m3-r-agent-memory", summary: "逐次授权参考、用量记录、角色隔离与修复经验保存。" },
       { title: "管理项目经验与事件接入", slug: "48-m4-r-web-memory-hooks", summary: "创建来源、接入事件、确认经验、授权索引、撤回清理与本机 Hook 配置。" },
       { title: "本地运行指南", slug: "27-local-development-guide", summary: "启动网页、配置模型、准备 Docker 镜像、运行记录的备份与恢复。" },
     ],
@@ -33,6 +33,9 @@ export const documentationGroups: readonly DocumentationGroup[] = [
     title: "工程记录",
     description: "开发过程中的计划、规格、交付和评审记录，内容停留在写作当时；当前功能以更新记录为准。",
     entries: [
+      { title: "记忆初始化与请求恢复", slug: "53-rel-03-memory-provider-recovery", summary: "离线资源、有限重试与未知用量边界。" },
+      { title: "记忆与 Hook 页面结构", slug: "52-ui-09-memory-navigation", summary: "记忆库、Hook 与事件入口，项目切换与旧链接兼容。" },
+      { title: "经验参考的对照评估", slug: "50-m5-r-memory-evaluation", summary: "比较无经验、正确建议与错误建议，说明成本、失败和效果边界。" },
       { title: "经验检索与使用", slug: "47-m2-r-engine-and-retrieval", summary: "配置授权、索引与检索、来源复核、撤回清理和真实测试边界。" },
       { title: "经验与事件存储", slug: "46-m1-r-authority-event-store", summary: "项目归属、确认与修订、事件去重、后台任务恢复和使用边界。" },
       { title: "记忆引擎选型与契约验证", slug: "45-mr-01-cognee-contract-validation", summary: "Cognee、现有模型、来源和删除的实测结果，以及生产接入门禁。" },
